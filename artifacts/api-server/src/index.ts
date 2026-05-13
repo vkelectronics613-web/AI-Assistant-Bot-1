@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { initWhatsApp } from "./services/whatsapp.js";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,9 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Start WhatsApp connection in the background
+  initWhatsApp().catch((e) =>
+    logger.error({ err: e }, "WhatsApp init failed")
+  );
 });
