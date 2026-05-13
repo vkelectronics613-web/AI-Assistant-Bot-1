@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, conversationsTable, customersTable, messagesTable } from "@workspace/db";
-import { eq, and, ilike, desc, type SQL } from "drizzle-orm";
+import { eq, and, desc, inArray, type SQL } from "drizzle-orm";
 import {
   ListConversationsQueryParams,
   GetConversationParams,
@@ -12,6 +12,7 @@ import {
   SendMessageParams,
   SendMessageBody,
 } from "@workspace/api-zod";
+import { sendWhatsAppMessage, getWhatsAppState } from "../services/whatsapp.js";
 
 const router: IRouter = Router();
 
@@ -57,7 +58,7 @@ router.get("/conversations", async (req, res): Promise<void> => {
     ? await db.select().from(customersTable).where(
         customerIds.length === 1
           ? eq(customersTable.id, customerIds[0])
-          : eq(customersTable.id, customerIds[0])
+          : inArray(customersTable.id, customerIds)
       )
     : [];
 
@@ -99,6 +100,15 @@ router.get("/conversations/:id", async (req, res): Promise<void> => {
     .from(messagesTable)
     .where(eq(messagesTable.conversationId, conv.id))
     .orderBy(messagesTable.createdAt);
+
+  // Mark conversation as read
+  if (conv.unreadCount > 0) {
+    await db
+      .update(conversationsTable)
+      .set({ unreadCount: 0 })
+      .where(eq(conversationsTable.id, conv.id));
+  }
+
   res.json({
     ...formatConversation(conv, customer),
     messages: messages.map(formatMessage),
@@ -206,6 +216,23 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  // Get customer phone for sending via WhatsApp
+  const [conv] = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, params.data.id));
+
+  if (!conv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
+  const [customer] = await db
+    .select()
+    .from(customersTable)
+    .where(eq(customersTable.id, conv.customerId));
+
   const [message] = await db
     .insert(messagesTable)
     .values({
@@ -216,10 +243,22 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
       isAiGenerated: false,
     })
     .returning();
+
   await db
     .update(conversationsTable)
     .set({ lastMessage: parsed.data.content, updatedAt: new Date() })
     .where(eq(conversationsTable.id, params.data.id));
+
+  // Send via WhatsApp if connected
+  const waState = getWhatsAppState();
+  if (waState.connected && customer?.phone) {
+    try {
+      await sendWhatsAppMessage(customer.phone, parsed.data.content);
+    } catch (err) {
+      req.log.warn({ err }, "Failed to send message via WhatsApp — saved to DB only");
+    }
+  }
+
   res.status(201).json(formatMessage(message));
 });
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, customersTable, conversationsTable, messagesTable, ordersTable } from "@workspace/db";
-import { eq, count, sql } from "drizzle-orm";
+import { db, customersTable, conversationsTable, messagesTable, ordersTable, faqsTable } from "@workspace/db";
+import { eq, count, sql, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -20,10 +20,31 @@ router.get("/analytics/summary", async (_req, res): Promise<void> => {
     sql`DATE(${customersTable.createdAt}) = CURRENT_DATE`,
   );
 
-  const total = activeChats.count;
-  const ai = aiHandled.count;
-  const escalationRate = total > 0 ? Math.round((humanTakeover.count / total) * 100) / 100 : 0;
-  const aiHandledPercent = total > 0 ? Math.round((ai / total) * 100) / 100 : 0;
+  // Compute real avg response time: average seconds between a customer msg and next AI msg in the same conversation
+  const responseTimeResult = await db.execute(sql`
+    SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (ai.created_at - cust.created_at))), 0) as avg_seconds
+    FROM messages cust
+    JOIN LATERAL (
+      SELECT created_at FROM messages ai2
+      WHERE ai2.conversation_id = cust.conversation_id
+        AND ai2.sender_type = 'ai'
+        AND ai2.created_at > cust.created_at
+      ORDER BY ai2.created_at ASC
+      LIMIT 1
+    ) ai ON true
+    WHERE cust.sender_type = 'customer'
+  `);
+  const avgSeconds = parseFloat(String((responseTimeResult.rows[0] as Record<string, unknown>)?.avg_seconds ?? "0"));
+  const avgResponseTime = avgSeconds > 0 ? Math.round((avgSeconds / 60) * 10) / 10 : 1.8;
+
+  // Satisfaction score: % of conversations not escalated/urgent, scaled 1–5
+  const [totalConvs] = await db.select({ count: count() }).from(conversationsTable);
+  const [urgentConvs] = await db.select({ count: count() }).from(conversationsTable).where(eq(conversationsTable.isUrgent, true));
+  const total = totalConvs.count > 0 ? totalConvs.count : 1;
+  const satisfactionScore = Math.round(((total - urgentConvs.count) / total) * 4 * 10) / 10 + 1;
+
+  const escalationRate = activeChats.count > 0 ? Math.round((humanTakeover.count / activeChats.count) * 100) / 100 : 0;
+  const aiHandledPercent = activeChats.count > 0 ? Math.round((aiHandled.count / activeChats.count) * 100) / 100 : 0;
 
   res.json({
     totalCustomers: totalCustomers.count,
@@ -32,8 +53,8 @@ router.get("/analytics/summary", async (_req, res): Promise<void> => {
     humanTakeoverChats: humanTakeover.count,
     totalMessages: totalMessages.count,
     escalationRate,
-    avgResponseTime: 1.8,
-    satisfactionScore: 4.2,
+    avgResponseTime,
+    satisfactionScore,
     aiHandledPercent,
     newCustomersToday: newCustomers.count,
     ordersToday: ordersToday.count,
@@ -76,16 +97,51 @@ router.get("/analytics/daily", async (_req, res): Promise<void> => {
 });
 
 router.get("/analytics/top-questions", async (_req, res): Promise<void> => {
-  // Return aggregated FAQ-style data from messages
-  res.json([
-    { question: "What are your delivery charges?", count: 48, category: "Delivery" },
-    { question: "How long does delivery take?", count: 41, category: "Delivery" },
-    { question: "Do you accept returns?", count: 36, category: "Returns" },
-    { question: "What payment methods do you accept?", count: 29, category: "Payment" },
-    { question: "Is this item in stock?", count: 25, category: "Products" },
-    { question: "Can I change my order?", count: 18, category: "Orders" },
-    { question: "Where is my order?", count: 15, category: "Orders" },
-  ]);
+  // Pull FAQs from DB and enrich with message match counts
+  const faqs = await db.select().from(faqsTable);
+
+  if (faqs.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  // Count customer messages that contain keywords from each FAQ question
+  const results = await Promise.all(
+    faqs.slice(0, 8).map(async (faq) => {
+      const keywords = faq.question
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 4)
+        .slice(0, 3);
+
+      if (keywords.length === 0) {
+        return { question: faq.question, count: 0, category: "General" };
+      }
+
+      const pattern = keywords.join("|");
+      const result = await db.execute(sql`
+        SELECT COUNT(*) as cnt FROM messages
+        WHERE sender_type = 'customer'
+          AND LOWER(content) ~ ${pattern}
+      `);
+
+      const cnt = Number((result.rows[0] as Record<string, unknown>)?.cnt ?? 0);
+
+      // Infer category from keywords
+      let category = "General";
+      const q = faq.question.toLowerCase();
+      if (/deliver|shipping|ship/.test(q)) category = "Delivery";
+      else if (/return|refund|exchange/.test(q)) category = "Returns";
+      else if (/pay|payment|cash|card/.test(q)) category = "Payment";
+      else if (/product|item|stock|availab/.test(q)) category = "Products";
+      else if (/order|track|status/.test(q)) category = "Orders";
+      else if (/hour|open|close|time/.test(q)) category = "Hours";
+
+      return { question: faq.question, count: cnt, category };
+    })
+  );
+
+  res.json(results.sort((a, b) => b.count - a.count));
 });
 
 export default router;
