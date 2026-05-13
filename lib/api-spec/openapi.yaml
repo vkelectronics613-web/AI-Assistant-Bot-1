@@ -3,20 +3,41 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: WhatsApp AI Assistant API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: whatsapp
+    description: WhatsApp connection management
+  - name: business
+    description: Business profile management
+  - name: products
+    description: Product catalog management
+  - name: customers
+    description: Customer management
+  - name: conversations
+    description: Chat and conversation management
+  - name: messages
+    description: Message operations
+  - name: ai
+    description: AI training and configuration
+  - name: orders
+    description: Order management
+  - name: notifications
+    description: Notification system
+  - name: analytics
+    description: Analytics and stats
+  - name: settings
+    description: Global settings
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +45,1048 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── WhatsApp ─────────────────────────────────────────────────────
+  /whatsapp/status:
+    get:
+      operationId: getWhatsappStatus
+      tags: [whatsapp]
+      summary: Get WhatsApp connection status
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsappStatus"
+
+  /whatsapp/qr:
+    get:
+      operationId: getWhatsappQr
+      tags: [whatsapp]
+      summary: Get QR code for WhatsApp connection
+      responses:
+        "200":
+          description: QR code data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrCode"
+
+  /whatsapp/disconnect:
+    post:
+      operationId: disconnectWhatsapp
+      tags: [whatsapp]
+      summary: Disconnect WhatsApp session
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /whatsapp/reconnect:
+    post:
+      operationId: reconnectWhatsapp
+      tags: [whatsapp]
+      summary: Reconnect WhatsApp session
+      responses:
+        "200":
+          description: Reconnecting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # ─── Business Profile ─────────────────────────────────────────────
+  /business:
+    get:
+      operationId: getBusinessProfile
+      tags: [business]
+      summary: Get business profile
+      responses:
+        "200":
+          description: Business profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProfile"
+    put:
+      operationId: updateBusinessProfile
+      tags: [business]
+      summary: Update business profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessProfileInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessProfile"
+
+  # ─── Products ──────────────────────────────────────────────────────
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all products
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: inStock
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Products list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get product by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Customers ─────────────────────────────────────────────────────
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List customers
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: vip
+          in: query
+          schema: { type: boolean }
+        - name: blocked
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Customers list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update customer settings (VIP, blocked, AI enabled, notes)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  # ─── Conversations ─────────────────────────────────────────────────
+  /conversations:
+    get:
+      operationId: listConversations
+      tags: [conversations]
+      summary: List conversations
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [all, ai, human, urgent, unread] }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Conversation list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+
+  /conversations/{id}:
+    get:
+      operationId: getConversation
+      tags: [conversations]
+      summary: Get conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationDetail"
+
+  /conversations/{id}/takeover:
+    post:
+      operationId: takeoverConversation
+      tags: [conversations]
+      summary: Human takeover of conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+
+  /conversations/{id}/return-to-ai:
+    post:
+      operationId: returnConversationToAi
+      tags: [conversations]
+      summary: Return conversation to AI
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+
+  /conversations/{id}/pause-ai:
+    post:
+      operationId: pauseConversationAi
+      tags: [conversations]
+      summary: Pause AI for this conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+
+  /conversations/{id}/resume-ai:
+    post:
+      operationId: resumeConversationAi
+      tags: [conversations]
+      summary: Resume AI for this conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+
+  # ─── Messages ─────────────────────────────────────────────────────
+  /conversations/{id}/messages:
+    get:
+      operationId: listMessages
+      tags: [messages]
+      summary: Get messages for a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendMessage
+      tags: [messages]
+      summary: Send a manual message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  # ─── Orders ────────────────────────────────────────────────────────
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List orders
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, confirmed, processing, shipped, delivered, cancelled] }
+        - name: customerId
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+    patch:
+      operationId: updateOrder
+      tags: [orders]
+      summary: Update order (status, etc)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  # ─── AI Training ──────────────────────────────────────────────────
+  /ai/config:
+    get:
+      operationId: getAiConfig
+      tags: [ai]
+      summary: Get AI training config
+      responses:
+        "200":
+          description: AI config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiConfig"
+    put:
+      operationId: updateAiConfig
+      tags: [ai]
+      summary: Update AI training config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiConfigInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiConfig"
+
+  /ai/faqs:
+    get:
+      operationId: listFaqs
+      tags: [ai]
+      summary: List FAQs
+      responses:
+        "200":
+          description: FAQs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Faq"
+    post:
+      operationId: createFaq
+      tags: [ai]
+      summary: Create FAQ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FaqInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Faq"
+
+  /ai/faqs/{id}:
+    patch:
+      operationId: updateFaq
+      tags: [ai]
+      summary: Update FAQ
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FaqUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Faq"
+    delete:
+      operationId: deleteFaq
+      tags: [ai]
+      summary: Delete FAQ
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Notifications ─────────────────────────────────────────────────
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications
+      parameters:
+        - name: unreadOnly
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: Done
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # ─── Analytics ─────────────────────────────────────────────────────
+  /analytics/summary:
+    get:
+      operationId: getAnalyticsSummary
+      tags: [analytics]
+      summary: Get dashboard analytics summary
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsSummary"
+
+  /analytics/daily:
+    get:
+      operationId: getDailyAnalytics
+      tags: [analytics]
+      summary: Get daily conversation analytics (last 14 days)
+      responses:
+        "200":
+          description: Daily stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyAnalytics"
+
+  /analytics/top-questions:
+    get:
+      operationId: getTopQuestions
+      tags: [analytics]
+      summary: Get top asked questions
+      responses:
+        "200":
+          description: Top questions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopQuestion"
+
+  # ─── Settings ─────────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get global settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update global settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+
 components:
   schemas:
     HealthStatus:
       type: object
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
+      required: [status]
 
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+      required: [success]
+
+    WhatsappStatus:
+      type: object
+      properties:
+        connected: { type: boolean }
+        phone: { type: ["string", "null"] }
+        sessionActive: { type: boolean }
+        lastConnected: { type: ["string", "null"] }
+        qrRequired: { type: boolean }
+      required: [connected, sessionActive, qrRequired]
+
+    QrCode:
+      type: object
+      properties:
+        qr: { type: ["string", "null"] }
+        expiresAt: { type: ["string", "null"] }
+        status: { type: string }
+      required: [status]
+
+    BusinessProfile:
+      type: object
+      properties:
+        id: { type: integer }
+        businessName: { type: string }
+        category: { type: string }
+        description: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        workingHours: { type: ["string", "null"] }
+        contactNumber: { type: ["string", "null"] }
+        deliveryAvailable: { type: boolean }
+        paymentMethods: { type: ["string", "null"] }
+        returnPolicy: { type: ["string", "null"] }
+        languages: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+      required: [id, businessName, category, deliveryAvailable, createdAt, updatedAt]
+
+    BusinessProfileInput:
+      type: object
+      properties:
+        businessName: { type: string }
+        category: { type: string }
+        description: { type: string }
+        address: { type: string }
+        workingHours: { type: string }
+        contactNumber: { type: string }
+        deliveryAvailable: { type: boolean }
+        paymentMethods: { type: string }
+        returnPolicy: { type: string }
+        languages: { type: string }
+
+    Product:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        price: { type: number }
+        category: { type: ["string", "null"] }
+        variants: { type: ["string", "null"] }
+        inStock: { type: boolean }
+        imageUrl: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+      required: [id, name, price, inStock, createdAt, updatedAt]
+
+    ProductInput:
+      type: object
+      required: [name, price]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        price: { type: number }
+        category: { type: string }
+        variants: { type: string }
+        inStock: { type: boolean }
+        imageUrl: { type: string }
+
+    ProductUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        price: { type: number }
+        category: { type: string }
+        variants: { type: string }
+        inStock: { type: boolean }
+        imageUrl: { type: string }
+
+    Customer:
+      type: object
+      properties:
+        id: { type: integer }
+        phone: { type: string }
+        name: { type: ["string", "null"] }
+        isVip: { type: boolean }
+        isBlocked: { type: boolean }
+        aiEnabled: { type: boolean }
+        notes: { type: ["string", "null"] }
+        emotionState: { type: string }
+        totalMessages: { type: integer }
+        lastSeen: { type: ["string", "null"] }
+        createdAt: { type: string }
+      required: [id, phone, isVip, isBlocked, aiEnabled, emotionState, totalMessages, createdAt]
+
+    CustomerUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        isVip: { type: boolean }
+        isBlocked: { type: boolean }
+        aiEnabled: { type: boolean }
+        notes: { type: string }
+
+    Conversation:
+      type: object
+      properties:
+        id: { type: integer }
+        customerId: { type: integer }
+        customerPhone: { type: string }
+        customerName: { type: ["string", "null"] }
+        status: { type: string }
+        aiHandled: { type: boolean }
+        humanTakeover: { type: boolean }
+        aiPaused: { type: boolean }
+        emotionState: { type: string }
+        lastMessage: { type: ["string", "null"] }
+        unreadCount: { type: integer }
+        isUrgent: { type: boolean }
+        updatedAt: { type: string }
+        createdAt: { type: string }
+      required: [id, customerId, customerPhone, status, aiHandled, humanTakeover, aiPaused, emotionState, unreadCount, isUrgent, createdAt, updatedAt]
+
+    ConversationDetail:
+      type: object
+      properties:
+        id: { type: integer }
+        customerId: { type: integer }
+        customerPhone: { type: string }
+        customerName: { type: ["string", "null"] }
+        status: { type: string }
+        aiHandled: { type: boolean }
+        humanTakeover: { type: boolean }
+        aiPaused: { type: boolean }
+        emotionState: { type: string }
+        lastMessage: { type: ["string", "null"] }
+        unreadCount: { type: integer }
+        isUrgent: { type: boolean }
+        messages: { type: array, items: { $ref: "#/components/schemas/Message" } }
+        updatedAt: { type: string }
+        createdAt: { type: string }
+      required: [id, customerId, customerPhone, status, aiHandled, humanTakeover, aiPaused, emotionState, unreadCount, isUrgent, messages, createdAt, updatedAt]
+
+    Message:
+      type: object
+      properties:
+        id: { type: integer }
+        conversationId: { type: integer }
+        content: { type: string }
+        sender: { type: string }
+        senderType: { type: string }
+        isAiGenerated: { type: boolean }
+        emotionDetected: { type: ["string", "null"] }
+        createdAt: { type: string }
+      required: [id, conversationId, content, sender, senderType, isAiGenerated, createdAt]
+
+    MessageInput:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string }
+
+    Order:
+      type: object
+      properties:
+        id: { type: integer }
+        customerId: { type: integer }
+        customerPhone: { type: ["string", "null"] }
+        customerName: { type: ["string", "null"] }
+        productId: { type: ["integer", "null"] }
+        productName: { type: ["string", "null"] }
+        quantity: { type: integer }
+        totalPrice: { type: number }
+        status: { type: string }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+      required: [id, customerId, quantity, totalPrice, status, createdAt, updatedAt]
+
+    OrderInput:
+      type: object
+      required: [customerId, quantity, totalPrice]
+      properties:
+        customerId: { type: integer }
+        productId: { type: integer }
+        quantity: { type: integer }
+        totalPrice: { type: number }
+        notes: { type: string }
+
+    OrderUpdate:
+      type: object
+      properties:
+        status: { type: string }
+        notes: { type: string }
+
+    AiConfig:
+      type: object
+      properties:
+        id: { type: integer }
+        enabled: { type: boolean }
+        tone: { type: string }
+        customInstructions: { type: ["string", "null"] }
+        confidenceThreshold: { type: number }
+        escalationSensitivity: { type: string }
+        promptPreview: { type: ["string", "null"] }
+        updatedAt: { type: string }
+      required: [id, enabled, tone, confidenceThreshold, escalationSensitivity, updatedAt]
+
+    AiConfigInput:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        tone: { type: string }
+        customInstructions: { type: string }
+        confidenceThreshold: { type: number }
+        escalationSensitivity: { type: string }
+        promptPreview: { type: string }
+
+    Faq:
+      type: object
+      properties:
+        id: { type: integer }
+        question: { type: string }
+        answer: { type: string }
+        createdAt: { type: string }
+      required: [id, question, answer, createdAt]
+
+    FaqInput:
+      type: object
+      required: [question, answer]
+      properties:
+        question: { type: string }
+        answer: { type: string }
+
+    FaqUpdate:
+      type: object
+      properties:
+        question: { type: string }
+        answer: { type: string }
+
+    Notification:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        title: { type: string }
+        message: { type: string }
+        read: { type: boolean }
+        priority: { type: string }
+        relatedId: { type: ["integer", "null"] }
+        createdAt: { type: string }
+      required: [id, type, title, message, read, priority, createdAt]
+
+    AnalyticsSummary:
+      type: object
+      properties:
+        totalCustomers: { type: integer }
+        activeChats: { type: integer }
+        aiHandledChats: { type: integer }
+        humanTakeoverChats: { type: integer }
+        totalMessages: { type: integer }
+        escalationRate: { type: number }
+        avgResponseTime: { type: number }
+        satisfactionScore: { type: number }
+        aiHandledPercent: { type: number }
+        newCustomersToday: { type: integer }
+        ordersToday: { type: integer }
+        revenueToday: { type: number }
+      required: [totalCustomers, activeChats, aiHandledChats, humanTakeoverChats, totalMessages, escalationRate, avgResponseTime, satisfactionScore, aiHandledPercent, newCustomersToday, ordersToday, revenueToday]
+
+    DailyAnalytics:
+      type: object
+      properties:
+        date: { type: string }
+        totalConversations: { type: integer }
+        aiHandled: { type: integer }
+        humanHandled: { type: integer }
+        escalations: { type: integer }
+      required: [date, totalConversations, aiHandled, humanHandled, escalations]
+
+    TopQuestion:
+      type: object
+      properties:
+        question: { type: string }
+        count: { type: integer }
+        category: { type: string }
+      required: [question, count, category]
+
+    Settings:
+      type: object
+      properties:
+        id: { type: integer }
+        globalAiEnabled: { type: boolean }
+        autoHandoverSensitivity: { type: string }
+        responseDelaySeconds: { type: integer }
+        workingHoursStart: { type: string }
+        workingHoursEnd: { type: string }
+        autoGreetingMessage: { type: ["string", "null"] }
+        autoAwayMessage: { type: ["string", "null"] }
+        language: { type: string }
+        updatedAt: { type: string }
+      required: [id, globalAiEnabled, autoHandoverSensitivity, responseDelaySeconds, workingHoursStart, workingHoursEnd, language, updatedAt]
+
+    SettingsInput:
+      type: object
+      properties:
+        globalAiEnabled: { type: boolean }
+        autoHandoverSensitivity: { type: string }
+        responseDelaySeconds: { type: integer }
+        workingHoursStart: { type: string }
+        workingHoursEnd: { type: string }
+        autoGreetingMessage: { type: string }
+        autoAwayMessage: { type: string }
+        language: { type: string }

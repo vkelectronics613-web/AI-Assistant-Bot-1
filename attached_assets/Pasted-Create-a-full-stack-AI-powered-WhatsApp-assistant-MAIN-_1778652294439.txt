@@ -1,0 +1,334 @@
+Create a full stack AI-powered WhatsApp assistant.
+
+MAIN GOAL: Shop owners should connect their WhatsApp by scanning a QR code and allow AI to automatically reply to customers using their business information and product catalog.
+
+IMPORTANT: Do NOT use official WhatsApp Business API UI. Design the frontend/dashboard assuming WhatsApp Web QR connection using Baileys or whatsapp-web.js on backend.
+
+STYLE:
+
+Modern SaaS UI
+
+Dark + premium theme
+
+Clean responsive layout
+
+Mobile friendly
+
+Smooth animations
+
+Similar quality to Stripe/Linear/Notion dashboards
+
+Professional but simple for non-technical shop owners .
+
+MAIN DASHBOARD Show:
+
+WhatsApp connection status
+
+AI status ON/OFF toggle
+
+Total customers
+
+Active chats
+
+AI handled chats
+
+Human takeover chats
+
+Notifications
+
+Recent conversations
+
+Quick actions
+
+WHATSAPP CONNECT PAGE Features:
+
+Large QR code section
+
+“Scan using WhatsApp Linked Devices”
+
+Connection status
+
+Session active indicator
+
+Reconnect button
+
+Disconnect button
+
+Animated success state after connection
+
+BUSINESS PROFILE PAGE Fields:
+
+Business name
+
+Category
+
+Description
+
+Address
+
+Working hours
+
+Contact number
+
+Delivery availability
+
+Payment methods
+
+Return policy
+
+Languages supported
+
+PRODUCT MANAGEMENT PAGE Features:
+
+Add/Edit/Delete products
+
+Product image upload
+
+Price
+
+Variants
+
+Stock availability
+
+Categories
+
+Search/filter
+
+Product cards
+
+Table view toggle
+
+AI TRAINING PAGE Allow business owner to:
+
+Add FAQs
+
+Add custom instructions
+
+Train AI behavior
+
+Upload business information
+
+Add response tone:
+
+Friendly
+
+Professional
+
+Sales-focused
+
+Casual
+
+Include:
+
+Prompt preview area
+
+Save training button
+
+AI confidence settings
+
+LIVE CHAT PAGE Modern WhatsApp-like interface.
+
+Features:
+
+Customer list sidebar
+
+Real-time messages
+
+AI/Human status
+
+Typing indicator
+
+Search chats
+
+Filter:
+
+AI handled
+
+Human takeover
+
+Urgent
+
+Unread
+
+Include buttons:
+
+Pause AI
+
+Resume AI
+
+Takeover chat
+
+Return to AI
+
+CUSTOMER CONTROL SYSTEM Allow owner to:
+
+Disable AI for specific numbers
+
+Block users
+
+Mark VIP customers
+
+Add notes
+
+Show toggle:
+
+AI Enabled for this customer
+
+EMOTION DETECTION + ESCALATION UI When customer becomes angry:
+
+Detect frustration visually
+
+Show warning badge
+
+AI attempts calming response
+
+If anger continues:
+
+AI pauses automatically
+
+Human takeover activates
+
+Dashboard notification appears
+
+Notification examples:
+
+Angry customer detected
+
+Refund request
+
+Human attention required
+
+Create:
+
+Priority indicators
+
+Escalation cards
+
+Alert center
+
+NOTIFICATION SYSTEM Real-time dashboard notifications:
+
+New customer
+
+AI handover request
+
+WhatsApp disconnected
+
+Payment received
+
+AI disabled
+
+SETTINGS PAGE Options:
+
+Global AI ON/OFF
+
+Auto handover sensitivity
+
+Response delay
+
+Working hours
+
+Auto greeting message
+
+Auto away message
+
+Language preferences
+
+ANALYTICS PAGE Charts and stats:
+
+AI response count
+
+Customer satisfaction
+
+Escalation rate
+
+Response speed
+
+Most asked questions
+
+Daily conversations
+
+BILLING PAGE Subscription UI:
+
+Free plan
+
+Pro plan
+
+Business plan
+
+Usage statistics
+
+Payment history
+
+DESIGN REQUIREMENTS:
+
+Use modern cards
+
+Rounded corners
+
+Beautiful typography
+
+Gradient highlights
+
+Glassmorphism where appropriate
+
+Smooth transitions
+
+Skeleton loaders
+
+Empty states
+
+Error states
+
+Toast notifications
+
+TECHNICAL REQUIREMENTS:
+
+Use reusable components
+
+Clean component structure
+
+Responsive design
+
+Optimized performance
+
+Modular architecture
+
+State management ready
+
+API integration ready
+
+IMPORTANT UI DETAILS:
+
+WhatsApp-green accents where suitable
+
+AI badges
+
+Human takeover badges
+
+Real-time connection indicators
+
+Online/offline statuses
+
+Premium SaaS feel
+
+Real Data Only:
+
+Real products
+
+Real customers
+
+Sample angry customer escalation
+
+Example conversations
+
+Real analytics
+
+Create the platform as a complete production-quality frontend SaaS dashboard experience.
+
+Answer according to owner's given info. Also add buttons in WhatsApp messages like when ordering or booking and send in dashboard like order received (only in WhatsApp not in website bot) and if their costumer says where's my order ai will analyze all orders and reply according to current stage/status that owner can update.
+
+Everything real and whole app will be full-stack.
+
+Use:
+WPPConnect / Baileys (open-source, QR-based like WhatsApp Web)

@@ -1,10 +1,11 @@
-# [Project name]
+# Nexus AI — WhatsApp AI Assistant SaaS
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A full-stack SaaS dashboard that lets shop owners connect WhatsApp via QR code and use AI to auto-reply to customers based on business info and product catalog.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/whatsapp-ai run dev` — run the React frontend (port 21603)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -14,6 +15,7 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite + Tailwind v4 + shadcn/ui + framer-motion + recharts + wouter
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
@@ -22,15 +24,36 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/db/src/schema/` — all DB schema tables (business, products, customers, conversations, messages, orders, ai_config, faqs, notifications, settings, whatsapp_sessions)
+- `lib/api-spec/openapi.yaml` — OpenAPI spec (source of truth for API contract)
+- `lib/api-client-react/src/generated/` — generated React Query hooks + Zod schemas
+- `artifacts/api-server/src/routes/` — all Express route handlers
+- `artifacts/whatsapp-ai/src/pages/` — all 12 frontend pages
+- `artifacts/whatsapp-ai/src/components/` — layout + shadcn/ui components
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Contract-first API design: OpenAPI spec → Orval codegen → typed hooks on frontend
+- Drizzle numeric columns (`decimal`) require explicit `String()` conversion on JS numbers before `.set()` calls
+- All routes are prefixed `/api/*` and served via a shared reverse proxy
+- Dark theme enforced via `document.documentElement.classList.add("dark")` in App.tsx
+- Emotion detection state stored per-customer and per-conversation for AI escalation logic
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+12-page SaaS dashboard covering:
+1. **Dashboard** — live KPI overview (active chats, AI rate, human takeovers, customers)
+2. **WhatsApp Connect** — QR code connection flow + session status
+3. **Live Chat** — real-time conversation viewer with AI/human toggle, takeover, pause/resume
+4. **Notifications** — urgent + prioritized alert feed with mark-read actions
+5. **Customers** — manage VIP/blocked status, per-customer AI enable, internal notes
+6. **Orders** — order status management with status-change select controls
+7. **Products** — full catalog CRUD with grid/list view toggle
+8. **Business Profile** — business info form for AI context
+9. **AI Training** — tone selector, confidence threshold, custom instructions, FAQs
+10. **Analytics** — area charts, pie chart, top questions, KPI stats (recharts)
+11. **Settings** — global AI toggle, handover sensitivity, working hours, auto messages
+12. **Billing** — plan comparison, usage meters, payment history
 
 ## User preferences
 
@@ -38,8 +61,13 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- After adding new DB schema tables, run `pnpm run typecheck:libs` to rebuild lib declarations before typechecking artifact packages
+- Drizzle `numeric` columns are TypeScript `string` at the type level — always convert JS numbers with `String()` before `.set()`
+- Do NOT run `pnpm dev` at workspace root — use workflows or `pnpm --filter` commands
+- `pnpm --filter @workspace/<slug> run typecheck` is the correct verification command (not `build`)
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- API hooks: import from `@workspace/api-client-react` — all hooks generated from OpenAPI spec
+- Theme: `--primary` = `#25D366` (WhatsApp green), dark background `#0A0A0B`
