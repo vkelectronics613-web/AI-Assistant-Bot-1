@@ -10,8 +10,10 @@ import {
   useListOrders,
   useUpdateOrder,
   getListOrdersQueryKey,
+  type ListOrdersStatus,
 } from "@workspace/api-client-react";
 import { ShoppingCart, Phone, Package, CheckCircle, Truck, Clock, XCircle, AlertCircle } from "lucide-react";
+import { useCurrency } from "@/hooks/use-currency";
 
 type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
 
@@ -31,10 +33,12 @@ export default function Orders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateOrder = useUpdateOrder();
+  const { format: formatPrice } = useCurrency();
 
+  const statusParam = filterStatus !== "all" ? { status: filterStatus as ListOrdersStatus } : undefined;
   const { data: orders, isLoading } = useListOrders(
-    filterStatus !== "all" ? { status: filterStatus } : {},
-    { query: { queryKey: getListOrdersQueryKey(filterStatus !== "all" ? { status: filterStatus } : {}) } }
+    statusParam,
+    { query: { queryKey: getListOrdersQueryKey(statusParam) } }
   );
 
   function changeStatus(id: number, status: OrderStatus) {
@@ -125,7 +129,7 @@ export default function Orders() {
                     </div>
                   </div>
                   <div className="flex items-center gap-6">
-                    <span className="text-lg font-bold text-primary">${order.totalPrice.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-primary">{formatPrice(order.totalPrice)}</span>
                     <Select
                       value={order.status}
                       onValueChange={(v) => changeStatus(order.id, v as OrderStatus)}

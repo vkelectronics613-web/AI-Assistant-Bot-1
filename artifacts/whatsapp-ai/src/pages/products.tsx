@@ -22,6 +22,7 @@ import {
 import {
   Plus, Search, Package, LayoutGrid, List, Pencil, Trash2, CheckCircle, XCircle,
 } from "lucide-react";
+import { useCurrency } from "@/hooks/use-currency";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -79,7 +80,7 @@ function ProductForm({ onSuccess, defaultValues, productId }: {
         <div className="grid grid-cols-2 gap-4">
           <FormField control={form.control} name="price" render={({ field }) => (
             <FormItem>
-              <FormLabel>Price ($)</FormLabel>
+              <FormLabel>Price</FormLabel>
               <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-product-price" /></FormControl>
               <FormMessage />
             </FormItem>
@@ -121,6 +122,7 @@ export default function Products() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const deleteProduct = useDeleteProduct();
+  const { format: formatPrice } = useCurrency();
 
   const { data: products, isLoading } = useListProducts(
     search ? { search } : {},
@@ -237,7 +239,7 @@ export default function Products() {
               </CardHeader>
               <CardContent className="pt-0 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-primary">${product.price.toFixed(2)}</span>
+                  <span className="text-lg font-bold text-primary">{formatPrice(product.price)}</span>
                   {product.inStock ? (
                     <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20 text-[10px]">
                       <CheckCircle className="h-3 w-3 mr-1" /> In Stock
@@ -269,7 +271,7 @@ export default function Products() {
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
-                  <span className="font-semibold text-primary">${product.price.toFixed(2)}</span>
+                  <span className="font-semibold text-primary">{formatPrice(product.price)}</span>
                   {product.inStock ? (
                     <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20 text-[10px]">In Stock</Badge>
                   ) : (

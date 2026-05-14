@@ -8,6 +8,58 @@
 import * as zod from "zod";
 
 /**
+ * @summary Get the currently authenticated user
+ */
+export const GetCurrentAuthUserHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const GetCurrentAuthUserResponse = zod.object({
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().nullish(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      profileImageUrl: zod.string().nullable(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * @summary Exchange a mobile OIDC code for a session token
+ */
+export const ExchangeMobileAuthorizationCodeBody = zod.object({
+  code: zod.string(),
+  code_verifier: zod.string(),
+  redirect_uri: zod.string(),
+  state: zod.string(),
+  nonce: zod.string().optional(),
+});
+
+export const ExchangeMobileAuthorizationCodeResponse = zod.object({
+  token: zod.string(),
+});
+
+/**
+ * @summary Delete a mobile session token
+ */
+export const LogoutMobileSessionHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const LogoutMobileSessionResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -735,6 +787,7 @@ export const GetSettingsResponse = zod.object({
   autoGreetingMessage: zod.string().nullish(),
   autoAwayMessage: zod.string().nullish(),
   language: zod.string(),
+  currency: zod.string(),
   updatedAt: zod.string(),
 });
 
@@ -750,6 +803,7 @@ export const UpdateSettingsBody = zod.object({
   autoGreetingMessage: zod.string().optional(),
   autoAwayMessage: zod.string().optional(),
   language: zod.string().optional(),
+  currency: zod.string().optional(),
 });
 
 export const UpdateSettingsResponse = zod.object({
@@ -762,5 +816,6 @@ export const UpdateSettingsResponse = zod.object({
   autoGreetingMessage: zod.string().nullish(),
   autoAwayMessage: zod.string().nullish(),
   language: zod.string(),
+  currency: zod.string(),
   updatedAt: zod.string(),
 });

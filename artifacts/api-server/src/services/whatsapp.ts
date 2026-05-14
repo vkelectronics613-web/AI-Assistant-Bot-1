@@ -24,6 +24,17 @@ import { generateAIReply, detectEmotion, createUrgentNotification } from "./ai.j
 
 const AUTH_DIR = "./baileys_auth";
 
+interface Contact {
+  phone: string;
+  name: string | null;
+}
+
+const contactsMap = new Map<string, Contact>();
+
+export function getContacts(): Contact[] {
+  return Array.from(contactsMap.values()).filter(c => c.phone && !c.phone.includes(":"));
+}
+
 interface WhatsAppState {
   connected: boolean;
   qrDataUrl: string | null;
@@ -280,6 +291,25 @@ export async function initWhatsApp(): Promise<void> {
 
     socket.ev.on("creds.update", saveCreds);
 
+    socket.ev.on("contacts.upsert", (contacts) => {
+      for (const c of contacts) {
+        const phone = c.id.replace("@s.whatsapp.net", "").replace("@c.us", "");
+        if (phone && !c.id.endsWith("@g.us") && !c.id.endsWith("@broadcast")) {
+          contactsMap.set(phone, { phone, name: c.name ?? c.notify ?? null });
+        }
+      }
+    });
+
+    socket.ev.on("contacts.update", (updates) => {
+      for (const c of updates) {
+        const phone = c.id?.replace("@s.whatsapp.net", "").replace("@c.us", "") ?? "";
+        if (phone && !c.id?.endsWith("@g.us")) {
+          const existing = contactsMap.get(phone);
+          contactsMap.set(phone, { phone, name: (c as { name?: string; notify?: string }).name ?? (c as { name?: string; notify?: string }).notify ?? existing?.name ?? null });
+        }
+      }
+    });
+
     socket.ev.on("messages.upsert", async ({ messages: msgs, type }) => {
       if (type !== "notify") return;
       const sock = socket;
@@ -399,4 +429,34 @@ export async function sendWhatsAppMessage(
   }
   const jid = to.includes("@") ? to : `${to.replace(/[^0-9]/g, "")}@s.whatsapp.net`;
   await socket.sendMessage(jid, { text });
+}
+
+export async function sendWhatsAppListMessage(
+  to: string,
+  title: string,
+  body: string,
+  options: { title: string; description: string }[]
+): Promise<void> {
+  if (!socket || !state.connected) {
+    throw new Error("WhatsApp not connected");
+  }
+  const jid = to.includes("@") ? to : `${to.replace(/[^0-9]/g, "")}@s.whatsapp.net`;
+  await socket.sendMessage(jid, {
+    listMessage: {
+      title,
+      description: body,
+      buttonText: "View options",
+      listType: 1,
+      sections: [
+        {
+          title: "Options",
+          rows: options.map((opt, i) => ({
+            rowId: String(i + 1),
+            title: opt.title,
+            description: opt.description,
+          })),
+        },
+      ],
+    },
+  } as unknown as Parameters<typeof socket.sendMessage>[1]);
 }

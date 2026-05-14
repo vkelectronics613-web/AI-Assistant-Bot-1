@@ -12,6 +12,7 @@ export const settingsTable = pgTable("app_settings", {
   autoGreetingMessage: text("auto_greeting_message"),
   autoAwayMessage: text("auto_away_message"),
   language: text("language").notNull().default("en"),
+  currency: text("currency").notNull().default("USD"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

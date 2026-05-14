@@ -18,7 +18,40 @@ import {
   useUpdateSettings,
   getGetSettingsQueryKey,
 } from "@workspace/api-client-react";
-import { Settings as SettingsIcon, BrainCircuit, Clock, MessageSquare, Globe } from "lucide-react";
+import { Settings as SettingsIcon, BrainCircuit, Clock, MessageSquare, Globe, DollarSign } from "lucide-react";
+
+const CURRENCIES = [
+  { code: "USD", symbol: "$", label: "US Dollar (USD)" },
+  { code: "EUR", symbol: "€", label: "Euro (EUR)" },
+  { code: "GBP", symbol: "£", label: "British Pound (GBP)" },
+  { code: "AED", symbol: "د.إ", label: "UAE Dirham (AED)" },
+  { code: "SAR", symbol: "﷼", label: "Saudi Riyal (SAR)" },
+  { code: "EGP", symbol: "E£", label: "Egyptian Pound (EGP)" },
+  { code: "INR", symbol: "₹", label: "Indian Rupee (INR)" },
+  { code: "PKR", symbol: "₨", label: "Pakistani Rupee (PKR)" },
+  { code: "NGN", symbol: "₦", label: "Nigerian Naira (NGN)" },
+  { code: "BRL", symbol: "R$", label: "Brazilian Real (BRL)" },
+  { code: "MXN", symbol: "$", label: "Mexican Peso (MXN)" },
+  { code: "ZAR", symbol: "R", label: "South African Rand (ZAR)" },
+  { code: "TRY", symbol: "₺", label: "Turkish Lira (TRY)" },
+  { code: "IDR", symbol: "Rp", label: "Indonesian Rupiah (IDR)" },
+  { code: "PHP", symbol: "₱", label: "Philippine Peso (PHP)" },
+  { code: "MYR", symbol: "RM", label: "Malaysian Ringgit (MYR)" },
+  { code: "THB", symbol: "฿", label: "Thai Baht (THB)" },
+  { code: "VND", symbol: "₫", label: "Vietnamese Dong (VND)" },
+  { code: "JPY", symbol: "¥", label: "Japanese Yen (JPY)" },
+  { code: "CNY", symbol: "¥", label: "Chinese Yuan (CNY)" },
+  { code: "KRW", symbol: "₩", label: "South Korean Won (KRW)" },
+  { code: "CAD", symbol: "CA$", label: "Canadian Dollar (CAD)" },
+  { code: "AUD", symbol: "A$", label: "Australian Dollar (AUD)" },
+  { code: "CHF", symbol: "CHF", label: "Swiss Franc (CHF)" },
+  { code: "RUB", symbol: "₽", label: "Russian Ruble (RUB)" },
+  { code: "PLN", symbol: "zł", label: "Polish Złoty (PLN)" },
+  { code: "SEK", symbol: "kr", label: "Swedish Krona (SEK)" },
+  { code: "NOK", symbol: "kr", label: "Norwegian Krone (NOK)" },
+  { code: "DKK", symbol: "kr", label: "Danish Krone (DKK)" },
+  { code: "CZK", symbol: "Kč", label: "Czech Koruna (CZK)" },
+];
 
 const settingsSchema = z.object({
   globalAiEnabled: z.boolean(),
@@ -29,6 +62,7 @@ const settingsSchema = z.object({
   autoGreetingMessage: z.string().optional(),
   autoAwayMessage: z.string().optional(),
   language: z.string(),
+  currency: z.string(),
 });
 
 type SettingsValues = z.infer<typeof settingsSchema>;
@@ -50,6 +84,7 @@ export default function Settings() {
       autoGreetingMessage: "",
       autoAwayMessage: "",
       language: "en",
+      currency: "USD",
     },
   });
 
@@ -64,6 +99,7 @@ export default function Settings() {
         autoGreetingMessage: settings.autoGreetingMessage ?? "",
         autoAwayMessage: settings.autoAwayMessage ?? "",
         language: settings.language,
+        currency: settings.currency ?? "USD",
       });
     }
   }, [settings, form]);
@@ -210,12 +246,13 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Language */}
+          {/* Language & Currency */}
           <Card className="glass-panel">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-base"><Globe className="h-5 w-5 text-primary" /> Language & Region</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base"><Globe className="h-5 w-5 text-primary" /> Language & Currency</CardTitle>
+              <CardDescription>Set the language for AI replies and the currency for product prices.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
               <FormField control={form.control} name="language" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Primary Language</FormLabel>
@@ -233,6 +270,29 @@ export default function Settings() {
                       <SelectItem value="pt">Portuguese</SelectItem>
                       <SelectItem value="hi">Hindi</SelectItem>
                       <SelectItem value="zh">Chinese</SelectItem>
+                      <SelectItem value="tr">Turkish</SelectItem>
+                      <SelectItem value="id">Indonesian</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="currency" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Currency</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-currency">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="max-h-64">
+                      {CURRENCIES.map(c => (
+                        <SelectItem key={c.code} value={c.code}>
+                          <span className="font-mono text-primary mr-2">{c.symbol}</span>{c.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

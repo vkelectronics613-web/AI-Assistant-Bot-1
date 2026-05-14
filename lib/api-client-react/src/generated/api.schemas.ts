@@ -310,6 +310,7 @@ export interface Settings {
   /** @nullable */
   autoAwayMessage?: string | null;
   language: string;
+  currency: string;
   updatedAt: string;
 }
 
@@ -322,7 +323,49 @@ export interface SettingsInput {
   autoGreetingMessage?: string;
   autoAwayMessage?: string;
   language?: string;
+  currency?: string;
 }
+
+export interface AuthUser {
+  id: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  firstName: string | null;
+  /** @nullable */
+  lastName: string | null;
+  /** @nullable */
+  profileImageUrl: string | null;
+}
+
+export interface AuthUserEnvelope {
+  user: AuthUser | null;
+}
+
+export interface MobileTokenExchangeRequest {
+  code: string;
+  code_verifier: string;
+  redirect_uri: string;
+  state: string;
+  nonce?: string;
+}
+
+export interface MobileTokenExchangeSuccess {
+  token: string;
+}
+
+export interface LogoutSuccess {
+  success: boolean;
+}
+
+export interface ErrorEnvelope {
+  error: string;
+}
+
+/**
+ * Opaque session token — `Bearer <sid>`.
+ */
+export type AuthorizationSessionHeaderParameter = string;
 
 export type ListProductsParams = {
   search?: string;

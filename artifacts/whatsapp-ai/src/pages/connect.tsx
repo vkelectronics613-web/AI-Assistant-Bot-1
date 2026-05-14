@@ -9,7 +9,8 @@ import {
   useGetWhatsappQr, 
   useDisconnectWhatsapp, 
   useReconnectWhatsapp,
-  getGetWhatsappStatusQueryKey
+  getGetWhatsappStatusQueryKey,
+  getGetWhatsappQrQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SiWhatsapp } from "react-icons/si";
@@ -21,13 +22,14 @@ export default function Connect() {
   const [isPolling, setIsPolling] = useState(true);
   
   const { data: status, isLoading: statusLoading } = useGetWhatsappStatus({ 
-    query: { refetchInterval: isPolling ? 3000 : false } 
+    query: { refetchInterval: isPolling ? 3000 : false, queryKey: getGetWhatsappStatusQueryKey() } 
   });
   
   const { data: qrData, isLoading: qrLoading, refetch: refetchQr } = useGetWhatsappQr({ 
     query: { 
       enabled: !!status && !status.connected && status.qrRequired,
-      refetchInterval: isPolling && status?.qrRequired ? 15000 : false
+      refetchInterval: isPolling && status?.qrRequired ? 15000 : false,
+      queryKey: getGetWhatsappQrQueryKey(),
     } 
   });
 

@@ -4,15 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useGetAnalyticsSummary, useGetWhatsappStatus, useListConversations, useListNotifications } from "@workspace/api-client-react";
+import { useGetAnalyticsSummary, useGetWhatsappStatus, useListConversations, useListNotifications, getGetWhatsappStatusQueryKey, getListConversationsQueryKey, getListNotificationsQueryKey } from "@workspace/api-client-react";
 import { SiWhatsapp } from "react-icons/si";
 import { MessageSquare, Users, BrainCircuit, AlertTriangle, ArrowRight, Activity, Clock, HeartHandshake } from "lucide-react";
 
 export default function Dashboard() {
-  const { data: status, isLoading: statusLoading } = useGetWhatsappStatus({ query: { refetchInterval: 10000 } });
+  const { data: status, isLoading: statusLoading } = useGetWhatsappStatus({ query: { refetchInterval: 10000, queryKey: getGetWhatsappStatusQueryKey() } });
   const { data: analytics, isLoading: analyticsLoading } = useGetAnalyticsSummary();
-  const { data: conversations, isLoading: conversationsLoading } = useListConversations({ status: "all" }, { query: { refetchInterval: 5000 } });
-  const { data: notifications, isLoading: notificationsLoading } = useListNotifications({ unreadOnly: true }, { query: { refetchInterval: 10000 } });
+  const { data: conversations, isLoading: conversationsLoading } = useListConversations(undefined, { query: { refetchInterval: 5000, queryKey: getListConversationsQueryKey() } });
+  const { data: notifications, isLoading: notificationsLoading } = useListNotifications({ unreadOnly: true }, { query: { refetchInterval: 10000, queryKey: getListNotificationsQueryKey({ unreadOnly: true }) } });
 
   const activeConversations = conversations?.filter(c => c.status === "active") || [];
   const urgentConversations = conversations?.filter(c => c.isUrgent) || [];

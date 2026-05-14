@@ -3,6 +3,7 @@ import {
   getWhatsAppState,
   disconnectWhatsApp,
   reconnectWhatsApp,
+  getContacts,
 } from "../services/whatsapp.js";
 
 const router: IRouter = Router();
@@ -32,6 +33,16 @@ router.get("/whatsapp/qr", async (req, res): Promise<void> => {
     ? new Date(st.qrGeneratedAt.getTime() + 60_000).toISOString()
     : null;
   res.json({ qr: st.qrDataUrl, expiresAt, status: "pending" });
+});
+
+router.get("/whatsapp/contacts", async (req, res): Promise<void> => {
+  const st = getWhatsAppState();
+  if (!st.connected) {
+    res.json({ connected: false, contacts: [] });
+    return;
+  }
+  const contacts = getContacts();
+  res.json({ connected: true, contacts });
 });
 
 router.post("/whatsapp/disconnect", async (req, res): Promise<void> => {

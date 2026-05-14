@@ -18,5 +18,6 @@ export interface Settings {
   /** @nullable */
   autoAwayMessage?: string | null;
   language: string;
+  currency: string;
   updatedAt: string;
 }

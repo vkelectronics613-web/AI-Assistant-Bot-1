@@ -15,4 +15,5 @@ export interface SettingsInput {
   autoGreetingMessage?: string;
   autoAwayMessage?: string;
   language?: string;
+  currency?: string;
 }
