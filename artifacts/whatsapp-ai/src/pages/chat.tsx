@@ -55,6 +55,14 @@ export default function Chat() {
   const { data: waStatus } = useGetWhatsappStatus({ query: { refetchInterval: 10000, queryKey: getGetWhatsappStatusQueryKey() } });
   const isConnected = waStatus?.connected ?? false;
 
+  // Clear selection and contacts when WhatsApp disconnects
+  useEffect(() => {
+    if (!isConnected) {
+      setSelectedId(null);
+      setContacts([]);
+    }
+  }, [isConnected]);
+
   const { data: conversations, isLoading: convLoading } = useListConversations(
     filter !== "all" ? { status: filter } : {},
     { query: { refetchInterval: 5000, queryKey: getListConversationsQueryKey(filter !== "all" ? { status: filter } : {}) } }
@@ -193,7 +201,12 @@ export default function Chat() {
               </div>
 
               <ScrollArea className="flex-1">
-                {convLoading ? (
+                {!isConnected ? (
+                  <div className="flex flex-col items-center justify-center h-48 gap-2 px-4 text-center">
+                    <SiWhatsapp className="h-8 w-8 text-muted-foreground/30" />
+                    <p className="text-xs text-muted-foreground">Connect WhatsApp to see conversations</p>
+                  </div>
+                ) : convLoading ? (
                   <div className="p-3 space-y-2">
                     {[1, 2, 3].map(i => <Skeleton key={i} className="h-14" />)}
                   </div>
