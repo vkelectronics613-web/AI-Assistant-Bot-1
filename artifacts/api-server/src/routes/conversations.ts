@@ -279,8 +279,29 @@ router.post("/conversations/:id/quick-replies", async (req, res): Promise<void> 
   if (!waState.connected) { res.status(503).json({ error: "WhatsApp not connected" }); return; }
 
   try {
-    await sendWhatsAppListMessage(customer.phone, "How can we help?", "Please choose one of the options below.", options);
-    res.json({ success: true });
+    const title = "How can we help?";
+    const body = "Please choose one of the options below.";
+    await sendWhatsAppListMessage(customer.phone, title, body, options);
+
+    // Store as a structured message so it appears in the chat
+    const content = `__LIST__:${JSON.stringify({ title, body, options })}`;
+    const [msg] = await db
+      .insert(messagesTable)
+      .values({
+        conversationId: id,
+        content,
+        sender: "agent",
+        senderType: "ai",
+        isAiGenerated: false,
+      })
+      .returning();
+
+    await db
+      .update(conversationsTable)
+      .set({ lastMessage: "📋 Interactive options sent", updatedAt: new Date() })
+      .where(eq(conversationsTable.id, id));
+
+    res.json({ success: true, message: formatMessage(msg) });
   } catch (err) {
     req.log.error({ err }, "Failed to send quick replies list");
     res.status(500).json({ error: "Failed to send" });

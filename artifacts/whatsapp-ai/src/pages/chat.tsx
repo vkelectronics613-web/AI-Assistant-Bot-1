@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { SiWhatsapp } from "react-icons/si";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,22 +22,85 @@ import {
 } from "@workspace/api-client-react";
 import {
   MessageSquare, Search, BrainCircuit, User, AlertTriangle, Send,
-  Pause, Play, UserCheck, Bot, Filter, Users, Phone, List,
+  Pause, Play, UserCheck, Bot, Filter, Users, Phone, X,
+  LayoutTemplate, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type FilterType = "all" | "ai" | "human" | "urgent" | "unread";
+type FilterType = "all" | "ai" | "human" | "urgent";
 type SidebarTab = "conversations" | "contacts";
 
-interface WaContact {
-  phone: string;
-  name: string | null;
+interface WaContact { phone: string; name: string | null; }
+interface ListPayload { title: string; body: string; options: { title: string; description: string }[]; }
+
+const QUICK_REPLIES = [
+  { title: "Track my order",  description: "Get order status update" },
+  { title: "View products",   description: "Browse our catalog" },
+  { title: "Speak to agent",  description: "Connect with a human" },
+  { title: "Business hours",  description: "When are you open?" },
+  { title: "Return policy",   description: "How do I return an item?" },
+];
+
+function parseListMsg(content: string): ListPayload | null {
+  if (!content.startsWith("__LIST__:")) return null;
+  try { return JSON.parse(content.slice(9)) as ListPayload; } catch { return null; }
 }
 
-function EmotionBadge({ state }: { state: string }) {
-  if (state === "angry") return <span className="flex h-2 w-2 rounded-full bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.8)]" />;
-  if (state === "frustrated") return <span className="flex h-2 w-2 rounded-full bg-yellow-400" />;
-  return <span className="flex h-2 w-2 rounded-full bg-primary/60" />;
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000) return "now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000) return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function msgTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function Avatar({ name, size = "md" }: { name?: string | null; size?: "sm" | "md" | "lg" }) {
+  const cls = size === "sm" ? "h-8 w-8 text-xs" : size === "lg" ? "h-10 w-10 text-sm" : "h-9 w-9 text-sm";
+  return (
+    <div className={cn("rounded-full bg-primary/15 flex items-center justify-center text-primary font-bold shrink-0", cls)}>
+      {name ? name.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
+    </div>
+  );
+}
+
+function EmotionDot({ state }: { state: string }) {
+  const col = state === "angry" ? "bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.7)]"
+    : state === "frustrated" ? "bg-amber-400"
+    : "bg-emerald-400";
+  return <span className={cn("absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background", col)} />;
+}
+
+function ListMessageCard({ payload }: { payload: ListPayload }) {
+  return (
+    <div className="w-64 rounded-2xl overflow-hidden border border-border/60 bg-background/80 shadow-sm text-left">
+      <div className="px-3.5 pt-3 pb-2">
+        <p className="text-xs font-semibold text-foreground">{payload.title}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">{payload.body}</p>
+      </div>
+      <div className="border-t border-border/40">
+        {payload.options.map((opt, i) => (
+          <div
+            key={i}
+            className={cn(
+              "flex items-center justify-between px-3.5 py-2 text-xs",
+              i !== payload.options.length - 1 && "border-b border-border/30"
+            )}
+          >
+            <span className="font-medium text-foreground">{opt.title}</span>
+            <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-center gap-1 border-t border-border/40 py-2 text-primary">
+        <LayoutTemplate className="h-3 w-3" />
+        <span className="text-[11px] font-semibold">View options</span>
+      </div>
+    </div>
+  );
 }
 
 export default function Chat() {
@@ -49,44 +111,41 @@ export default function Chat() {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("conversations");
   const [contacts, setContacts] = useState<WaContact[]>([]);
   const [contactSearch, setContactSearch] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: waStatus } = useGetWhatsappStatus({ query: { refetchInterval: 10000, queryKey: getGetWhatsappStatusQueryKey() } });
+  const { data: waStatus } = useGetWhatsappStatus({
+    query: { refetchInterval: 10000, queryKey: getGetWhatsappStatusQueryKey() },
+  });
   const isConnected = waStatus?.connected ?? false;
 
-  // Clear selection and contacts when WhatsApp disconnects
   useEffect(() => {
-    if (!isConnected) {
-      setSelectedId(null);
-      setContacts([]);
-    }
+    if (!isConnected) { setSelectedId(null); setContacts([]); }
   }, [isConnected]);
 
-  const { data: conversations, isLoading: convLoading } = useListConversations(
-    filter !== "all" ? { status: filter } : {},
-    { query: { refetchInterval: 5000, queryKey: getListConversationsQueryKey(filter !== "all" ? { status: filter } : {}) } }
-  );
+  const filterParam = filter !== "all" ? { status: filter } : undefined;
+  const { data: conversations, isLoading: convLoading } = useListConversations(filterParam, {
+    query: { refetchInterval: 5000, queryKey: getListConversationsQueryKey(filterParam) },
+  });
 
   const { data: detail, isLoading: detailLoading } = useGetConversation(selectedId!, {
     query: { enabled: !!selectedId, queryKey: getGetConversationQueryKey(selectedId!), refetchInterval: 3000 },
   });
 
-  const sendMessage = useSendMessage();
-  const takeover = useTakeoverConversation();
-  const returnToAi = useReturnConversationToAi();
-  const pauseAi = usePauseConversationAi();
-  const resumeAi = useResumeConversationAi();
+  const sendMessage  = useSendMessage();
+  const takeover     = useTakeoverConversation();
+  const returnToAi   = useReturnConversationToAi();
+  const pauseAi      = usePauseConversationAi();
+  const resumeAi     = useResumeConversationAi();
 
-  // Fetch WA contacts when connected
   useEffect(() => {
     if (!isConnected) return;
     fetch("/api/whatsapp/contacts", { credentials: "include" })
       .then(r => r.json())
-      .then((d: { connected: boolean; contacts: WaContact[] }) => {
-        if (d.connected) setContacts(d.contacts);
-      })
+      .then((d: { connected: boolean; contacts: WaContact[] }) => { if (d.connected) setContacts(d.contacts); })
       .catch(() => {});
   }, [isConnected]);
 
@@ -103,52 +162,49 @@ export default function Chat() {
     if (!message.trim() || !selectedId) return;
     sendMessage.mutate(
       { id: selectedId, data: { content: message } },
-      {
-        onSuccess: () => { setMessage(""); invalidate(); },
-        onError: () => toast({ title: "Send failed", variant: "destructive" }),
-      }
+      { onSuccess: () => { setMessage(""); invalidate(); }, onError: () => toast({ title: "Send failed", variant: "destructive" }) },
     );
   }
 
   const filteredConvs = (conversations ?? []).filter(c =>
     !search || c.customerPhone.includes(search) || (c.customerName?.toLowerCase().includes(search.toLowerCase()) ?? false)
   );
-
   const filteredContacts = contacts.filter(c =>
-    !contactSearch ||
-    c.phone.includes(contactSearch) ||
-    (c.name?.toLowerCase().includes(contactSearch.toLowerCase()) ?? false)
+    !contactSearch || c.phone.includes(contactSearch) || (c.name?.toLowerCase().includes(contactSearch.toLowerCase()) ?? false)
   );
 
-  const filters: { label: string; value: FilterType; icon: React.ReactNode }[] = [
-    { label: "All", value: "all", icon: <MessageSquare className="h-3.5 w-3.5" /> },
-    { label: "AI", value: "ai", icon: <Bot className="h-3.5 w-3.5" /> },
-    { label: "Human", value: "human", icon: <User className="h-3.5 w-3.5" /> },
-    { label: "Urgent", value: "urgent", icon: <AlertTriangle className="h-3.5 w-3.5" /> },
+  const filters: { label: string; value: FilterType }[] = [
+    { label: "All",    value: "all" },
+    { label: "AI",     value: "ai" },
+    { label: "Human",  value: "human" },
+    { label: "Urgent", value: "urgent" },
   ];
 
   return (
-    <div className="h-[calc(100vh-5rem)] flex flex-col max-w-7xl mx-auto">
-      <div className="mb-4">
-        <h1 className="text-3xl font-bold tracking-tight">Live Chat</h1>
-        <p className="text-muted-foreground">Monitor and manage customer conversations in real time.</p>
+    <div className="h-[calc(100vh-5rem)] flex flex-col max-w-[1400px] mx-auto">
+      <div className="mb-4 shrink-0">
+        <h1 className="text-2xl font-bold tracking-tight">Live Chat</h1>
+        <p className="text-sm text-muted-foreground">Monitor and manage customer conversations in real time.</p>
       </div>
 
-      <div className="flex-1 flex gap-4 min-h-0">
-        {/* Sidebar */}
-        <Card className="glass-panel w-80 shrink-0 flex flex-col overflow-hidden">
-          {/* Tab switcher */}
-          <div className="flex border-b border-border">
+      <div className="flex-1 flex gap-3 min-h-0">
+
+        {/* ── Sidebar ── */}
+        <div className="w-72 shrink-0 flex flex-col rounded-xl border border-border overflow-hidden bg-card">
+
+          {/* Tab bar */}
+          <div className="flex border-b border-border shrink-0">
             <button
               onClick={() => setSidebarTab("conversations")}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors",
-                sidebarTab === "conversations" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+                sidebarTab === "conversations" ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <MessageSquare className="h-3.5 w-3.5" /> Chats
+              <MessageSquare className="h-3.5 w-3.5" />
+              Chats
               {filteredConvs.length > 0 && (
-                <span className="h-4 min-w-4 px-1 bg-primary/15 text-primary rounded-full text-[9px] font-bold flex items-center justify-center">
+                <span className="h-4 min-w-4 px-1 bg-primary text-primary-foreground rounded-full text-[9px] font-bold flex items-center justify-center">
                   {filteredConvs.length}
                 </span>
               )}
@@ -158,12 +214,13 @@ export default function Chat() {
                 onClick={() => setSidebarTab("contacts")}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors",
-                  sidebarTab === "contacts" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+                  sidebarTab === "contacts" ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Users className="h-3.5 w-3.5" /> Contacts
+                <Users className="h-3.5 w-3.5" />
+                Contacts
                 {contacts.length > 0 && (
-                  <span className="h-4 min-w-4 px-1 bg-primary/15 text-primary rounded-full text-[9px] font-bold flex items-center justify-center">
+                  <span className="h-4 min-w-4 px-1 bg-secondary text-muted-foreground rounded-full text-[9px] font-bold flex items-center justify-center">
                     {contacts.length}
                   </span>
                 )}
@@ -173,15 +230,15 @@ export default function Chat() {
 
           {sidebarTab === "conversations" ? (
             <>
-              <div className="p-3 border-b border-border space-y-2">
+              {/* Search + filters */}
+              <div className="p-2.5 border-b border-border space-y-2 shrink-0">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
-                    placeholder="Search chats..."
-                    className="pl-8 h-8 text-sm"
+                    placeholder="Search conversations…"
+                    className="pl-8 h-7 text-xs bg-secondary/30"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    data-testid="input-search-chats"
+                    onChange={e => setSearch(e.target.value)}
                   />
                 </div>
                 <div className="flex gap-1">
@@ -190,69 +247,78 @@ export default function Chat() {
                       key={f.value}
                       onClick={() => setFilter(f.value)}
                       className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors",
-                        filter === f.value ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        "flex-1 py-1 rounded text-[10px] font-medium transition-colors",
+                        filter === f.value
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                       )}
-                      data-testid={`filter-${f.value}`}
                     >
-                      {f.icon}{f.label}
+                      {f.label}
                     </button>
                   ))}
                 </div>
               </div>
 
+              {/* List */}
               <ScrollArea className="flex-1">
                 {!isConnected ? (
-                  <div className="flex flex-col items-center justify-center h-48 gap-2 px-4 text-center">
-                    <SiWhatsapp className="h-8 w-8 text-muted-foreground/30" />
-                    <p className="text-xs text-muted-foreground">Connect WhatsApp to see conversations</p>
+                  <div className="flex flex-col items-center justify-center gap-3 h-52 px-4 text-center">
+                    <SiWhatsapp className="h-10 w-10 text-muted-foreground/20" />
+                    <p className="text-xs text-muted-foreground leading-relaxed">Connect WhatsApp to<br />see conversations</p>
                   </div>
                 ) : convLoading ? (
                   <div className="p-3 space-y-2">
-                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-14" />)}
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-16" />)}
                   </div>
                 ) : !filteredConvs.length ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-xs">
-                    <Filter className="h-6 w-6 mb-2 opacity-20" />
-                    No conversations
+                  <div className="flex flex-col items-center justify-center h-40 gap-2 text-muted-foreground">
+                    <Filter className="h-5 w-5 opacity-20" />
+                    <p className="text-xs">No conversations</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border/50">
+                  <div>
                     {filteredConvs.map(c => (
                       <button
                         key={c.id}
                         onClick={() => setSelectedId(c.id)}
                         className={cn(
-                          "w-full text-left p-3 hover:bg-secondary/30 transition-colors",
-                          selectedId === c.id && "bg-primary/10 border-r-2 border-primary"
+                          "w-full text-left px-3 py-3 hover:bg-secondary/40 transition-colors border-b border-border/30 last:border-b-0",
+                          selectedId === c.id && "bg-primary/10 border-l-2 border-l-primary",
                         )}
-                        data-testid={`chat-item-${c.id}`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="relative shrink-0">
-                              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-semibold">
-                                {c.customerName?.charAt(0) ?? "?"}
-                              </div>
-                              <EmotionBadge state={c.emotionState} />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium truncate">{c.customerName ?? c.customerPhone}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{c.lastMessage ?? "No messages"}</p>
-                            </div>
+                        <div className="flex items-start gap-2.5">
+                          <div className="relative shrink-0 mt-0.5">
+                            <Avatar name={c.customerName} size="sm" />
+                            <EmotionDot state={c.emotionState} />
                           </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            {c.isUrgent && <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />}
-                            {c.unreadCount > 0 && (
-                              <span className="h-4 w-4 bg-primary rounded-full text-[9px] text-primary-foreground flex items-center justify-center font-bold">
-                                {c.unreadCount}
-                              </span>
-                            )}
-                            {c.aiHandled ? (
-                              <BrainCircuit className="h-3 w-3 text-primary/50" />
-                            ) : (
-                              <User className="h-3 w-3 text-yellow-400/70" />
-                            )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="text-xs font-semibold truncate">{c.customerName ?? c.customerPhone}</p>
+                              <span className="text-[10px] text-muted-foreground shrink-0">{relativeTime(c.updatedAt)}</span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5">{c.lastMessage ?? "No messages yet"}</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              {c.aiHandled && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-primary bg-primary/10 rounded px-1 py-0.5">
+                                  <BrainCircuit className="h-2.5 w-2.5" /> AI
+                                </span>
+                              )}
+                              {c.humanTakeover && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-amber-400 bg-amber-400/10 rounded px-1 py-0.5">
+                                  <UserCheck className="h-2.5 w-2.5" /> Human
+                                </span>
+                              )}
+                              {c.isUrgent && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-red-400 bg-red-400/10 rounded px-1 py-0.5">
+                                  <AlertTriangle className="h-2.5 w-2.5" /> Urgent
+                                </span>
+                              )}
+                              {c.unreadCount > 0 && (
+                                <span className="ml-auto h-4 min-w-4 px-1 bg-primary rounded-full text-[9px] text-primary-foreground flex items-center justify-center font-bold">
+                                  {c.unreadCount}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </button>
@@ -264,37 +330,33 @@ export default function Chat() {
           ) : (
             /* Contacts tab */
             <>
-              <div className="p-3 border-b border-border">
+              <div className="p-2.5 border-b border-border shrink-0">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
-                    placeholder="Search contacts..."
-                    className="pl-8 h-8 text-sm"
+                    placeholder="Search contacts…"
+                    className="pl-8 h-7 text-xs bg-secondary/30"
                     value={contactSearch}
-                    onChange={(e) => setContactSearch(e.target.value)}
+                    onChange={e => setContactSearch(e.target.value)}
                   />
                 </div>
               </div>
               <ScrollArea className="flex-1">
                 {!filteredContacts.length ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-xs">
-                    <Users className="h-6 w-6 mb-2 opacity-20" />
-                    {contacts.length === 0 ? "No contacts synced yet" : "No matches"}
+                  <div className="flex flex-col items-center justify-center h-40 gap-2 text-muted-foreground">
+                    <Users className="h-5 w-5 opacity-20" />
+                    <p className="text-xs">{contacts.length === 0 ? "No contacts synced yet" : "No matches"}</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border/50">
+                  <div>
                     {filteredContacts.map(c => (
-                      <div
-                        key={c.phone}
-                        className="flex items-center gap-3 p-3 hover:bg-secondary/30 transition-colors"
-                      >
-                        <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-semibold shrink-0">
-                          {c.name ? c.name.charAt(0).toUpperCase() : <Phone className="h-3.5 w-3.5" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
+                      <div key={c.phone} className="flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/30 transition-colors border-b border-border/30 last:border-b-0">
+                        <Avatar name={c.name} size="sm" />
+                        <div className="min-w-0">
                           <p className="text-xs font-medium truncate">{c.name ?? c.phone}</p>
                           <p className="text-[10px] text-muted-foreground">+{c.phone}</p>
                         </div>
+                        <Phone className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 ml-auto" />
                       </div>
                     ))}
                   </div>
@@ -302,81 +364,140 @@ export default function Chat() {
               </ScrollArea>
             </>
           )}
-        </Card>
+        </div>
 
-        {/* Chat Window */}
-        <Card className="glass-panel flex-1 flex flex-col overflow-hidden">
+        {/* ── Chat Window ── */}
+        <div className="flex-1 flex flex-col rounded-xl border border-border overflow-hidden bg-card min-w-0">
           {!selectedId ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-              <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
-              <p className="font-medium">Select a conversation</p>
-              <p className="text-sm mt-1">Choose a chat from the sidebar to view messages.</p>
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+              <div className="h-16 w-16 rounded-full bg-secondary/50 flex items-center justify-center">
+                <MessageSquare className="h-8 w-8 opacity-30" />
+              </div>
+              <div className="text-center">
+                <p className="font-medium text-sm">No conversation selected</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">Pick a chat from the sidebar to start</p>
+              </div>
             </div>
           ) : (
             <>
-              {/* Chat Header */}
-              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
-                {detailLoading ? <Skeleton className="h-8 w-48" /> : (
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center text-primary font-semibold">
-                      {detail?.customerName?.charAt(0) ?? "?"}
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 shrink-0 bg-card/80 backdrop-blur-sm">
+                {detailLoading ? (
+                  <Skeleton className="h-10 w-56" />
+                ) : (
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative shrink-0">
+                      <Avatar name={detail?.customerName} size="lg" />
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 border-2 border-background" />
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm">{detail?.customerName ?? detail?.customerPhone}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs text-muted-foreground">{detail?.customerPhone}</p>
-                        {detail?.aiHandled && <Badge variant="outline" className="text-[10px] h-4 bg-primary/10 text-primary border-primary/20"><Bot className="h-2.5 w-2.5 mr-0.5" />AI Active</Badge>}
-                        {detail?.humanTakeover && <Badge variant="outline" className="text-[10px] h-4 bg-yellow-500/10 text-yellow-400 border-yellow-500/20"><UserCheck className="h-2.5 w-2.5 mr-0.5" />Human</Badge>}
-                        {detail?.isUrgent && <Badge variant="destructive" className="text-[10px] h-4"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Urgent</Badge>}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{detail?.customerName ?? detail?.customerPhone}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        <span className="text-[11px] text-muted-foreground">{detail?.customerPhone}</span>
+                        {detail?.aiHandled && (
+                          <Badge className="text-[10px] h-4 px-1.5 bg-primary/15 text-primary border-primary/20 hover:bg-primary/15">
+                            <Bot className="h-2.5 w-2.5 mr-0.5" />AI Active
+                          </Badge>
+                        )}
+                        {detail?.humanTakeover && (
+                          <Badge className="text-[10px] h-4 px-1.5 bg-amber-400/10 text-amber-400 border-amber-400/20 hover:bg-amber-400/10">
+                            <UserCheck className="h-2.5 w-2.5 mr-0.5" />Human
+                          </Badge>
+                        )}
+                        {detail?.isUrgent && (
+                          <Badge variant="destructive" className="text-[10px] h-4 px-1.5">
+                            <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Urgent
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
                 )}
-                <div className="flex gap-2">
+
+                <div className="flex items-center gap-2 shrink-0">
                   {detail?.aiPaused ? (
-                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { resumeAi.mutate({ id: selectedId }, { onSuccess: invalidate }); }} data-testid="button-resume-ai">
-                      <Play className="h-3 w-3 mr-1" /> Resume AI
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                      onClick={() => resumeAi.mutate({ id: selectedId }, { onSuccess: invalidate })}>
+                      <Play className="h-3.5 w-3.5 text-primary" /> Resume AI
                     </Button>
                   ) : (
-                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { pauseAi.mutate({ id: selectedId }, { onSuccess: invalidate }); }} data-testid="button-pause-ai">
-                      <Pause className="h-3 w-3 mr-1" /> Pause AI
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                      onClick={() => pauseAi.mutate({ id: selectedId }, { onSuccess: invalidate })}>
+                      <Pause className="h-3.5 w-3.5" /> Pause AI
                     </Button>
                   )}
                   {detail?.humanTakeover ? (
-                    <Button size="sm" variant="outline" className="text-xs h-7 text-primary border-primary/30" onClick={() => { returnToAi.mutate({ id: selectedId }, { onSuccess: invalidate }); }} data-testid="button-return-ai">
-                      <Bot className="h-3 w-3 mr-1" /> Return to AI
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5 text-primary border-primary/30 hover:bg-primary/10"
+                      onClick={() => returnToAi.mutate({ id: selectedId }, { onSuccess: invalidate })}>
+                      <Bot className="h-3.5 w-3.5" /> Return to AI
                     </Button>
                   ) : (
-                    <Button size="sm" className="text-xs h-7" onClick={() => { takeover.mutate({ id: selectedId }, { onSuccess: invalidate }); }} data-testid="button-takeover">
-                      <UserCheck className="h-3 w-3 mr-1" /> Takeover
+                    <Button size="sm" className="h-8 text-xs gap-1.5"
+                      onClick={() => takeover.mutate({ id: selectedId }, { onSuccess: invalidate })}>
+                      <UserCheck className="h-3.5 w-3.5" /> Take Over
                     </Button>
                   )}
                 </div>
               </div>
 
               {/* Messages */}
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 px-4 py-4">
                 {detailLoading ? (
                   <div className="space-y-4">
-                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-3/4" />)}
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className={cn("flex", i % 2 === 0 ? "justify-end" : "justify-start")}>
+                        <Skeleton className={cn("h-12 rounded-2xl", i % 2 === 0 ? "w-48" : "w-56")} />
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {detail?.messages?.map((msg) => {
                       const isOwn = msg.senderType !== "customer";
+                      const listPayload = parseListMsg(msg.content);
+
                       return (
-                        <div key={msg.id} className={cn("flex", isOwn ? "justify-end" : "justify-start")} data-testid={`message-${msg.id}`}>
-                          <div className={cn(
-                            "max-w-[70%] rounded-2xl px-4 py-2.5 text-sm",
-                            isOwn
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary/60 text-foreground border border-border/50"
-                          )}>
-                            <p>{msg.content}</p>
-                            <p className={cn("text-[10px] mt-1", isOwn ? "text-primary-foreground/60 text-right" : "text-muted-foreground")}>
-                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                          </div>
+                        <div key={msg.id} className={cn("flex items-end gap-2", isOwn ? "justify-end" : "justify-start")}>
+                          {!isOwn && (
+                            <div className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center shrink-0 mb-1">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                          )}
+
+                          {listPayload ? (
+                            /* Interactive list message */
+                            <div className="flex flex-col items-end gap-1">
+                              <ListMessageCard payload={listPayload} />
+                              <span className="text-[10px] text-muted-foreground px-1">{msgTime(msg.createdAt)}</span>
+                            </div>
+                          ) : (
+                            /* Regular text message */
+                            <div className={cn("max-w-[65%] flex flex-col", isOwn ? "items-end" : "items-start")}>
+                              <div className={cn(
+                                "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
+                                isOwn
+                                  ? "bg-primary text-primary-foreground rounded-br-sm"
+                                  : "bg-secondary/70 text-foreground border border-border/40 rounded-bl-sm",
+                              )}>
+                                {msg.content}
+                              </div>
+                              <div className={cn("flex items-center gap-1 mt-0.5 px-1", isOwn ? "flex-row-reverse" : "flex-row")}>
+                                <span className="text-[10px] text-muted-foreground">{msgTime(msg.createdAt)}</span>
+                                {isOwn && msg.senderType === "ai" && (
+                                  <span className="text-[9px] text-primary/60 font-medium">AI</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {isOwn && (
+                            <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mb-1">
+                              {msg.senderType === "ai"
+                                ? <BrainCircuit className="h-3 w-3 text-primary" />
+                                : <UserCheck className="h-3 w-3 text-primary" />
+                              }
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -385,44 +506,86 @@ export default function Chat() {
                 )}
               </ScrollArea>
 
-              {/* Input */}
-              <div className="p-4 border-t border-border shrink-0">
-                <div className="flex gap-2">
-                  <QuickRepliesButton conversationId={selectedId} onSent={invalidate} />
+              {/* Templates panel */}
+              {showTemplates && (
+                <div className="border-t border-border bg-card/95 shrink-0">
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Send Interactive Message</span>
+                    <button onClick={() => setShowTemplates(false)} className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <div className="rounded-xl border border-border overflow-hidden">
+                      <div className="px-4 py-3 bg-secondary/40 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold">Quick Reply List</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">Sends a WhatsApp interactive list — customers tap to reply</p>
+                        </div>
+                        <SendListButton
+                          conversationId={selectedId}
+                          onSent={() => { invalidate(); setShowTemplates(false); }}
+                        />
+                      </div>
+                      <div className="divide-y divide-border/40">
+                        {QUICK_REPLIES.map((r, i) => (
+                          <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                            <span className="text-xs font-medium">{r.title}</span>
+                            <span className="text-[11px] text-muted-foreground">{r.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Input bar */}
+              <div className="px-4 py-3 border-t border-border shrink-0 bg-card/80">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={showTemplates ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 gap-1.5 text-xs shrink-0"
+                    onClick={() => setShowTemplates(v => !v)}
+                    title="Send interactive message template"
+                  >
+                    <LayoutTemplate className="h-3.5 w-3.5" />
+                    Templates
+                  </Button>
+
                   <Input
-                    placeholder="Type a message..."
+                    ref={inputRef}
+                    placeholder="Type a message…"
+                    className="flex-1 h-9 text-sm"
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                    data-testid="input-message"
+                    onChange={e => setMessage(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                   />
-                  <Button onClick={handleSend} disabled={!message.trim() || sendMessage.isPending} data-testid="button-send">
+
+                  <Button
+                    size="sm"
+                    className="h-9 w-9 shrink-0 p-0"
+                    onClick={handleSend}
+                    disabled={!message.trim() || sendMessage.isPending}
+                  >
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             </>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );
 }
 
-const QUICK_REPLIES = [
-  { title: "Track my order", description: "Get order status update" },
-  { title: "View products", description: "Browse our catalog" },
-  { title: "Speak to agent", description: "Connect with a human" },
-  { title: "Business hours", description: "When are you open?" },
-  { title: "Return policy", description: "How do I return an item?" },
-];
-
-function QuickRepliesButton({ conversationId, onSent }: { conversationId: number; onSent: () => void }) {
-  const [open, setOpen] = useState(false);
+function SendListButton({ conversationId, onSent }: { conversationId: number; onSent: () => void }) {
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
 
-  async function sendQuickReplies() {
+  async function send() {
     setSending(true);
     try {
       const res = await fetch(`/api/conversations/${conversationId}/quick-replies`, {
@@ -431,45 +594,19 @@ function QuickRepliesButton({ conversationId, onSent }: { conversationId: number
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ options: QUICK_REPLIES }),
       });
-      if (!res.ok) throw new Error("Failed");
-      toast({ title: "Quick replies sent" });
+      if (!res.ok) throw new Error();
+      toast({ title: "Interactive message sent to WhatsApp" });
       onSent();
-      setOpen(false);
     } catch {
-      toast({ title: "Could not send quick replies", variant: "destructive" });
+      toast({ title: "Failed to send", variant: "destructive" });
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <div className="relative">
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-9 w-9 shrink-0"
-        onClick={() => setOpen(v => !v)}
-        title="Send quick reply options"
-        data-testid="button-quick-replies"
-      >
-        <List className="h-4 w-4" />
-      </Button>
-      {open && (
-        <div className="absolute bottom-11 left-0 w-64 bg-card border border-border rounded-xl shadow-xl p-3 z-10">
-          <p className="text-xs font-semibold text-muted-foreground mb-2">Quick Reply Options</p>
-          <div className="space-y-1 mb-3">
-            {QUICK_REPLIES.map((r, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-secondary/30">
-                <span className="font-medium">{r.title}</span>
-                <span className="text-muted-foreground text-[10px] ml-auto">{r.description}</span>
-              </div>
-            ))}
-          </div>
-          <Button size="sm" className="w-full text-xs h-7" disabled={sending} onClick={sendQuickReplies}>
-            {sending ? "Sending..." : "Send as WhatsApp List"}
-          </Button>
-        </div>
-      )}
-    </div>
+    <Button size="sm" className="h-7 text-xs px-3 shrink-0" onClick={send} disabled={sending}>
+      {sending ? "Sending…" : "Send Now"}
+    </Button>
   );
 }
