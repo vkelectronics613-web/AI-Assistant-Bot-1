@@ -43,8 +43,8 @@ router.get("/analytics/summary", async (_req, res): Promise<void> => {
   const total = totalConvs.count > 0 ? totalConvs.count : 1;
   const satisfactionScore = Math.round(((total - urgentConvs.count) / total) * 4 * 10) / 10 + 1;
 
-  const escalationRate = activeChats.count > 0 ? Math.round((humanTakeover.count / activeChats.count) * 100) / 100 : 0;
-  const aiHandledPercent = activeChats.count > 0 ? Math.round((aiHandled.count / activeChats.count) * 100) / 100 : 0;
+  const escalationRate = activeChats.count > 0 ? Math.round((humanTakeover.count / activeChats.count) * 100) : 0;
+  const aiHandledPercent = activeChats.count > 0 ? Math.round((aiHandled.count / activeChats.count) * 100) : 0;
 
   res.json({
     totalCustomers: totalCustomers.count,
