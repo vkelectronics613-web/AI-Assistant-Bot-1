@@ -98,7 +98,7 @@ Rules:
     messages.push({ role: "user", content: ctx.incomingMessage });
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       max_completion_tokens: 500,
       messages,
     });
