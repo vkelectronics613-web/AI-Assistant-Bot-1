@@ -19,9 +19,10 @@ import { SiWhatsapp } from "react-icons/si";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { useGetSettings, useUpdateSettings } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import type { Settings as SettingsData } from "@workspace/api-client-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -47,18 +48,28 @@ export function Sidebar() {
   const aiEnabled = settings?.globalAiEnabled ?? true;
 
   function toggleAI() {
-    if (!settings) return;
+    if (!settings || updateSettings.isPending) return;
     const next = !aiEnabled;
+    const queryKey = getGetSettingsQueryKey();
+
+    // Optimistic update — flip the switch immediately
+    queryClient.setQueryData<SettingsData>(queryKey, (old) =>
+      old ? { ...old, globalAiEnabled: next } : old
+    );
+
     updateSettings.mutate(
       { data: { globalAiEnabled: next } },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["getSettings"] });
-          toast.success(next ? "AI replies enabled for all chats" : "AI replies paused — manual mode active", {
+        onSuccess: (updated) => {
+          queryClient.setQueryData<SettingsData>(queryKey, updated);
+          toast.success(next ? "AI replies enabled" : "AI replies paused", {
             icon: next ? "🤖" : "🔕",
           });
         },
-        onError: () => toast.error("Failed to update AI status"),
+        onError: () => {
+          queryClient.setQueryData<SettingsData>(queryKey, settings);
+          toast.error("Failed to update AI status");
+        },
       }
     );
   }
