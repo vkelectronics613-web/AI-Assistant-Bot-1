@@ -1,0 +1,157 @@
+# 🔥 REPLIT PROMPT — WhatsApp AI Assistant Landing Page
+
+---
+
+## PASTE THIS ENTIRE PROMPT INTO REPLIT AI:
+
+---
+
+Create a stunning, production-grade landing page for a "WhatsApp AI Assistant" bot. The design must be a **pure white theme** with elegant animations, modern typography, and premium feel. This should look like a $10,000 agency-built website.
+
+---
+
+### 🎨 DESIGN REQUIREMENTS
+
+**Theme:** Pure white (#FFFFFF) background with soft off-white sections (#F8F9FA). NO dark backgrounds anywhere.
+
+**Color Palette:**
+- Primary: #25D366 (WhatsApp green) for CTAs and accents
+- Secondary: #128C7E (deep WhatsApp teal) for hover states
+- Text: #1A1A2E (deep navy) for headings, #4A4A68 for body text
+- Accent glows: rgba(37, 211, 102, 0.15) for subtle green glow effects
+- Border: rgba(37, 211, 102, 0.2) for card borders
+
+**Typography:**
+- Heading font: `'Clash Display'` or `'Plus Jakarta Sans'` from Google Fonts (bold, modern)
+- Body font: `'DM Sans'` from Google Fonts (clean, readable)
+- Hero heading: 72px, font-weight 800
+- Sub-headings: 40px, font-weight 700
+- Body: 16px, line-height 1.7
+
+---
+
+### 📐 PAGE STRUCTURE (build all these sections)
+
+#### 1. 🔝 NAVBAR
+- Sticky, frosted glass effect: `backdrop-filter: blur(20px)`, white with 0.8 opacity
+- Logo: WhatsApp icon + "Virat AI Assistant" text
+- Nav links: Features, How It Works, Pricing, Contact
+- CTA button: "Try for Free" — green gradient, rounded pill shape
+- Smooth scroll on link click
+- On scroll: add subtle box-shadow to navbar
+
+#### 2. 🦸 HERO SECTION
+- Full viewport height (100vh)
+- **Floating WhatsApp phone mockup** on the right side showing a chat conversation with the AI bot
+- Left side: Big bold heading with typing animation:
+  - Line 1: "Your Smartest"
+  - Line 2: "WhatsApp Assistant" (in green gradient text)
+  - Line 3: "Powered by AI ⚡"
+- Subtext: "Automate replies, answer questions, and delight your customers — 24/7 on WhatsApp"
+- Two CTA buttons: "Get Started Free 🚀" (green solid) + "Watch Demo ▶" (outlined)
+- **Background:** Subtle animated gradient mesh — very light greens and whites slowly shifting (CSS keyframe animation)
+- Floating green particles/dots animation in background (pure CSS)
+- Small social proof badge: "⭐ Trusted by 500+ businesses"
+
+#### 3. ✨ FEATURES SECTION (white background)
+- Section heading: "Everything You Need"
+- 6 feature cards in a 3×2 grid layout
+- Each card: white background, soft green border glow on hover, rounded corners (20px), padding 2rem
+- Cards have icon (emoji or SVG), title, description
+- Card hover animation: translateY(-8px) + green box-shadow
+- Features to include:
+  1. 🤖 AI-Powered Replies — Smart, context-aware responses
+  2. ⚡ Instant Response — Zero delays, 24/7 uptime
+  3. 🌍 Multi-language — Supports 50+ languages
+  4. 📊 Analytics Dashboard — Track conversations & insights
+  5. 🔗 Easy Integration — Connect in under 5 minutes
+  6. 🔒 Secure & Private — End-to-end encryption
+
+#### 4. 🎬 HOW IT WORKS (very light gray #F8F9FA background)
+- Section heading: "Get Started in 3 Simple Steps"
+- Horizontal step flow with connecting animated dashed line
+- Step 1: Connect WhatsApp → Step 2: Configure AI → Step 3: Go Live!
+- Each step: numbered circle (green), icon, title, description
+- Animated line drawing effect on scroll (CSS animation)
+- Steps appear with stagger animation (appear one by one on scroll)
+
+#### 5. 💬 LIVE DEMO / CHAT PREVIEW
+- Section: "See It In Action"
+- Realistic WhatsApp chat UI mockup (white with green bubbles)
+- Animated typing: show messages appearing one by one with typing indicator (3 dots bouncing)
+- Show example conversation: User asks question → AI replies smartly
+- Phone frame around the chat mockup
+- Loop the animation every 8 seconds
+
+#### 6. 💰 PRICING SECTION (white background)
+- 3 pricing cards: Free, Pro ($9/mo), Business ($29/mo)
+- Pro card: slightly elevated, green border, "Most Popular" badge
+- Each card: feature list with green checkmarks, CTA button
+- Hover effect on all cards
+
+#### 7. ⭐ TESTIMONIALS
+- Clean card grid with 3 testimonials
+- Star ratings, user avatar (initials circle), name, role, quote
+- Subtle card with soft shadow
+
+#### 8. 🔚 FOOTER
+- Dark section (#0D0D0D) — only dark part of the page
+- Logo, nav links, social icons
+- "Made with ❤️ by Virat Kumar" tagline
+- Copyright notice
+
+---
+
+### 🎭 ANIMATIONS (MUST INCLUDE ALL)
+
+```css
+/* Required animations */
+1. Hero background: slowly shifting gradient mesh (10s infinite)
+2. Floating particles: small dots drifting upward slowly
+3. Typing text animation in hero (typewriter effect)
+4. Scroll reveal: sections fade + slide up on scroll (use IntersectionObserver)
+5. Feature cards: hover lift + glow
+6. WhatsApp mockup: subtle floating up-down (levitate animation, 3s infinite)
+7. Chat messages: appear one by one with CSS animation
+8. Typing indicator: 3 bouncing dots (WhatsApp style)
+9. Navbar: smooth transition on scroll (add shadow)
+10. CTA button: shimmer/shine effect on hover
+11. Step connecting line: animate drawing on scroll
+12. Number counter: count up animation when section enters viewport
+```
+
+---
+
+### 💻 TECHNICAL SPECS
+
+- Pure HTML, CSS, JavaScript (single index.html file or separate files)
+- NO frameworks required (vanilla JS is fine, or use minimal CDN like AOS.js for scroll animations)
+- Google Fonts: load Plus Jakarta Sans + DM Sans
+- Mobile responsive (works on phone, tablet, desktop)
+- Smooth scroll behavior on the whole page
+- Use CSS custom properties (variables) for colors
+- Performance: lazy load images, use CSS animations (not JS-heavy)
+- Add AOS (Animate On Scroll) library via CDN for scroll animations:
+  `<link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">`
+  `<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>`
+
+---
+
+### 📱 RESPONSIVE BREAKPOINTS
+- Desktop: Full layout as described
+- Tablet (768px): 2-column feature grid, stacked hero
+- Mobile (480px): Single column, smaller fonts, hamburger menu
+
+---
+
+### 🌟 EXTRA POLISH
+- Custom scrollbar: thin green scrollbar
+- Smooth page loading with fade-in
+- Meta tags for SEO: title "Virat AI Assistant — WhatsApp Bot Powered by AI"
+- Favicon: 💬 emoji or WhatsApp icon
+- Add `scroll-behavior: smooth` globally
+- WhatsApp floating action button in bottom-right corner (green circle with WhatsApp icon)
+
+---
+
+**The final result should look like a premium SaaS landing page — clean, modern, white, with beautiful green WhatsApp-themed accents and smooth animations throughout. Make it STUNNING. 🔥**
