@@ -22,8 +22,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   MessageSquare, Search, BrainCircuit, User, AlertTriangle, Send,
-  Pause, Play, UserCheck, Bot, Filter, Users, Phone, X,
-  LayoutTemplate, ChevronRight,
+  Pause, Play, UserCheck, Bot, Filter, Users, Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,20 +30,6 @@ type FilterType = "all" | "ai" | "human" | "urgent";
 type SidebarTab = "conversations" | "contacts";
 
 interface WaContact { phone: string; name: string | null; }
-interface ListPayload { title: string; body: string; options: { title: string; description: string }[]; }
-
-const QUICK_REPLIES = [
-  { title: "Track my order",  description: "Get order status update" },
-  { title: "View products",   description: "Browse our catalog" },
-  { title: "Speak to agent",  description: "Connect with a human" },
-  { title: "Business hours",  description: "When are you open?" },
-  { title: "Return policy",   description: "How do I return an item?" },
-];
-
-function parseListMsg(content: string): ListPayload | null {
-  if (!content.startsWith("__LIST__:")) return null;
-  try { return JSON.parse(content.slice(9)) as ListPayload; } catch { return null; }
-}
 
 function relativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -74,35 +59,6 @@ function EmotionDot({ state }: { state: string }) {
   return <span className={cn("absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background", col)} />;
 }
 
-function ListMessageCard({ payload }: { payload: ListPayload }) {
-  return (
-    <div className="w-64 rounded-2xl overflow-hidden border border-border/60 bg-background/80 shadow-sm text-left">
-      <div className="px-3.5 pt-3 pb-2">
-        <p className="text-xs font-semibold text-foreground">{payload.title}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5">{payload.body}</p>
-      </div>
-      <div className="border-t border-border/40">
-        {payload.options.map((opt, i) => (
-          <div
-            key={i}
-            className={cn(
-              "flex items-center justify-between px-3.5 py-2 text-xs",
-              i !== payload.options.length - 1 && "border-b border-border/30"
-            )}
-          >
-            <span className="font-medium text-foreground">{opt.title}</span>
-            <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center justify-center gap-1 border-t border-border/40 py-2 text-primary">
-        <LayoutTemplate className="h-3 w-3" />
-        <span className="text-[11px] font-semibold">View options</span>
-      </div>
-    </div>
-  );
-}
-
 export default function Chat() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
@@ -111,7 +67,6 @@ export default function Chat() {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("conversations");
   const [contacts, setContacts] = useState<WaContact[]>([]);
   const [contactSearch, setContactSearch] = useState("");
-  const [showTemplates, setShowTemplates] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -454,8 +409,6 @@ export default function Chat() {
                   <div className="space-y-2">
                     {detail?.messages?.map((msg) => {
                       const isOwn = msg.senderType !== "customer";
-                      const listPayload = parseListMsg(msg.content);
-
                       return (
                         <div key={msg.id} className={cn("flex items-end gap-2", isOwn ? "justify-end" : "justify-start")}>
                           {!isOwn && (
@@ -464,31 +417,22 @@ export default function Chat() {
                             </div>
                           )}
 
-                          {listPayload ? (
-                            /* Interactive list message */
-                            <div className="flex flex-col items-end gap-1">
-                              <ListMessageCard payload={listPayload} />
-                              <span className="text-[10px] text-muted-foreground px-1">{msgTime(msg.createdAt)}</span>
+                          <div className={cn("max-w-[65%] flex flex-col", isOwn ? "items-end" : "items-start")}>
+                            <div className={cn(
+                              "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
+                              isOwn
+                                ? "bg-primary text-primary-foreground rounded-br-sm"
+                                : "bg-secondary/70 text-foreground border border-border/40 rounded-bl-sm",
+                            )}>
+                              {msg.content}
                             </div>
-                          ) : (
-                            /* Regular text message */
-                            <div className={cn("max-w-[65%] flex flex-col", isOwn ? "items-end" : "items-start")}>
-                              <div className={cn(
-                                "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm",
-                                isOwn
-                                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                                  : "bg-secondary/70 text-foreground border border-border/40 rounded-bl-sm",
-                              )}>
-                                {msg.content}
-                              </div>
-                              <div className={cn("flex items-center gap-1 mt-0.5 px-1", isOwn ? "flex-row-reverse" : "flex-row")}>
-                                <span className="text-[10px] text-muted-foreground">{msgTime(msg.createdAt)}</span>
-                                {isOwn && msg.senderType === "ai" && (
-                                  <span className="text-[9px] text-primary/60 font-medium">AI</span>
-                                )}
-                              </div>
+                            <div className={cn("flex items-center gap-1 mt-0.5 px-1", isOwn ? "flex-row-reverse" : "flex-row")}>
+                              <span className="text-[10px] text-muted-foreground">{msgTime(msg.createdAt)}</span>
+                              {isOwn && msg.senderType === "ai" && (
+                                <span className="text-[9px] text-primary/60 font-medium">AI</span>
+                              )}
                             </div>
-                          )}
+                          </div>
 
                           {isOwn && (
                             <div className="h-6 w-6 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mb-1">
@@ -506,54 +450,9 @@ export default function Chat() {
                 )}
               </ScrollArea>
 
-              {/* Templates panel */}
-              {showTemplates && (
-                <div className="border-t border-border bg-card/95 shrink-0">
-                  <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Send Interactive Message</span>
-                    <button onClick={() => setShowTemplates(false)} className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <div className="p-4">
-                    <div className="rounded-xl border border-border overflow-hidden">
-                      <div className="px-4 py-3 bg-secondary/40 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-semibold">Quick Reply List</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">Sends a WhatsApp interactive list — customers tap to reply</p>
-                        </div>
-                        <SendListButton
-                          conversationId={selectedId}
-                          onSent={() => { invalidate(); setShowTemplates(false); }}
-                        />
-                      </div>
-                      <div className="divide-y divide-border/40">
-                        {QUICK_REPLIES.map((r, i) => (
-                          <div key={i} className="flex items-center justify-between px-4 py-2.5">
-                            <span className="text-xs font-medium">{r.title}</span>
-                            <span className="text-[11px] text-muted-foreground">{r.description}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Input bar */}
               <div className="px-4 py-3 border-t border-border shrink-0 bg-card/80">
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant={showTemplates ? "default" : "outline"}
-                    size="sm"
-                    className="h-9 gap-1.5 text-xs shrink-0"
-                    onClick={() => setShowTemplates(v => !v)}
-                    title="Send interactive message template"
-                  >
-                    <LayoutTemplate className="h-3.5 w-3.5" />
-                    Templates
-                  </Button>
-
                   <Input
                     ref={inputRef}
                     placeholder="Type a message…"
@@ -562,7 +461,6 @@ export default function Chat() {
                     onChange={e => setMessage(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                   />
-
                   <Button
                     size="sm"
                     className="h-9 w-9 shrink-0 p-0"
@@ -578,35 +476,5 @@ export default function Chat() {
         </div>
       </div>
     </div>
-  );
-}
-
-function SendListButton({ conversationId, onSent }: { conversationId: number; onSent: () => void }) {
-  const [sending, setSending] = useState(false);
-  const { toast } = useToast();
-
-  async function send() {
-    setSending(true);
-    try {
-      const res = await fetch(`/api/conversations/${conversationId}/quick-replies`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ options: QUICK_REPLIES }),
-      });
-      if (!res.ok) throw new Error();
-      toast({ title: "Interactive message sent to WhatsApp" });
-      onSent();
-    } catch {
-      toast({ title: "Failed to send", variant: "destructive" });
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <Button size="sm" className="h-7 text-xs px-3 shrink-0" onClick={send} disabled={sending}>
-      {sending ? "Sending…" : "Send Now"}
-    </Button>
   );
 }

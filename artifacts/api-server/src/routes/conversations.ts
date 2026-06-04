@@ -12,7 +12,7 @@ import {
   SendMessageParams,
   SendMessageBody,
 } from "@workspace/api-zod";
-import { sendWhatsAppMessage, sendWhatsAppListMessage, getWhatsAppState } from "../services/whatsapp.js";
+import { sendWhatsAppMessage, getWhatsAppState } from "../services/whatsapp.js";
 
 const router: IRouter = Router();
 
@@ -260,52 +260,6 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
   }
 
   res.status(201).json(formatMessage(message));
-});
-
-router.post("/conversations/:id/quick-replies", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-
-  const options: { title: string; description: string }[] = req.body?.options ?? [];
-  if (!options.length) { res.status(400).json({ error: "No options provided" }); return; }
-
-  const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, id)).limit(1);
-  if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
-
-  const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, conv.customerId)).limit(1);
-  if (!customer?.phone) { res.status(400).json({ error: "No phone number for customer" }); return; }
-
-  const waState = getWhatsAppState();
-  if (!waState.connected) { res.status(503).json({ error: "WhatsApp not connected" }); return; }
-
-  try {
-    const title = "How can we help?";
-    const body = "Please choose one of the options below.";
-    await sendWhatsAppListMessage(customer.phone, title, body, options);
-
-    // Store as a structured message so it appears in the chat
-    const content = `__LIST__:${JSON.stringify({ title, body, options })}`;
-    const [msg] = await db
-      .insert(messagesTable)
-      .values({
-        conversationId: id,
-        content,
-        sender: "agent",
-        senderType: "ai",
-        isAiGenerated: false,
-      })
-      .returning();
-
-    await db
-      .update(conversationsTable)
-      .set({ lastMessage: "📋 Interactive options sent", updatedAt: new Date() })
-      .where(eq(conversationsTable.id, id));
-
-    res.json({ success: true, message: formatMessage(msg) });
-  } catch (err) {
-    req.log.error({ err }, "Failed to send quick replies list");
-    res.status(500).json({ error: "Failed to send" });
-  }
 });
 
 export default router;

@@ -13,11 +13,22 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { eq, desc, and } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 
+type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string; detail: "low" | "high" | "auto" } };
+
+type MessageParam =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string | ContentPart[] }
+  | { role: "assistant"; content: string };
+
 interface AIReplyContext {
   conversationId: number;
   customerId: number;
   customerName: string | null;
   incomingMessage: string;
+  mediaBase64?: string;
+  mediaType?: "image" | "video";
 }
 
 export async function generateAIReply(ctx: AIReplyContext): Promise<string | null> {
@@ -81,9 +92,11 @@ Rules:
 - If you cannot answer, politely say a human agent will follow up.
 - Do not mention that you are an AI unless directly asked.
 - Do not include greetings like "Hello!" in every reply — only on the first message.
-- Keep replies short and focused.`;
+- Keep replies short and focused.
+- When the customer shares an image, describe what you observe and help accordingly.
+- When the customer shares a video, acknowledge it and assist as best you can.`;
 
-    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+    const messages: MessageParam[] = [
       { role: "system", content: systemPrompt },
     ];
 
@@ -95,7 +108,28 @@ Rules:
       }
     }
 
-    messages.push({ role: "user", content: ctx.incomingMessage });
+    // Build current user message — multimodal if image attached
+    if (ctx.mediaBase64 && ctx.mediaType === "image") {
+      const parts: ContentPart[] = [];
+      if (ctx.incomingMessage) {
+        parts.push({ type: "text", text: ctx.incomingMessage });
+      }
+      parts.push({
+        type: "image_url",
+        image_url: {
+          url: `data:image/jpeg;base64,${ctx.mediaBase64}`,
+          detail: "low",
+        },
+      });
+      messages.push({ role: "user", content: parts });
+    } else if (ctx.mediaType === "video") {
+      const videoNote = ctx.incomingMessage
+        ? `${ctx.incomingMessage}\n\n[The customer also sent a video. Acknowledge it and help if you can.]`
+        : "[The customer sent a video. Acknowledge it and offer assistance.]";
+      messages.push({ role: "user", content: videoNote });
+    } else {
+      messages.push({ role: "user", content: ctx.incomingMessage });
+    }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",

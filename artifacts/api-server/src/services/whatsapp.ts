@@ -2,6 +2,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  downloadMediaMessage,
   type WASocket,
   type proto,
 } from "@whiskeysockets/baileys";
@@ -109,20 +110,45 @@ async function handleIncomingMessage(
     if (jid.endsWith("@g.us")) return;
     if (msg.key?.fromMe) return;
 
-    // Extract message text
+    // Extract message text and detect media type
     const text =
       msg.message?.conversation ??
       msg.message?.extendedTextMessage?.text ??
       msg.message?.buttonsResponseMessage?.selectedDisplayText ??
       msg.message?.listResponseMessage?.title ??
+      msg.message?.imageMessage?.caption ??
+      msg.message?.videoMessage?.caption ??
       null;
 
-    if (!text) return;
+    const isImage = !!msg.message?.imageMessage;
+    const isVideo = !!msg.message?.videoMessage;
+    const hasMedia = isImage || isVideo;
+
+    // Must have text or media to proceed
+    if (!text && !hasMedia) return;
+
+    const displayText = text ?? (isImage ? "[📷 Image]" : "[🎬 Video]");
 
     const phone = jid.replace("@s.whatsapp.net", "");
     const pushName = msg.pushName ?? null;
 
-    logger.info({ phone, text: text.substring(0, 80) }, "Incoming WhatsApp message");
+    logger.info({ phone, hasMedia, mediaType: isImage ? "image" : isVideo ? "video" : null, text: text?.substring(0, 80) }, "Incoming WhatsApp message");
+
+    // Download image for AI vision analysis
+    let mediaBase64: string | undefined;
+    let mediaType: "image" | "video" | undefined;
+    if (isImage) {
+      try {
+        const buf = await downloadMediaMessage(msg as Parameters<typeof downloadMediaMessage>[0], "buffer", {}) as Buffer;
+        mediaBase64 = buf.toString("base64");
+        mediaType = "image";
+      } catch (err) {
+        logger.error({ err }, "Failed to download image from WhatsApp message");
+        mediaType = "image";
+      }
+    } else if (isVideo) {
+      mediaType = "video";
+    }
 
     // Find or create customer
     let [customer] = await db
@@ -174,7 +200,7 @@ async function handleIncomingMessage(
           aiHandled: true,
           humanTakeover: false,
           aiPaused: false,
-          lastMessage: text,
+          lastMessage: displayText,
           unreadCount: 1,
         })
         .returning();
@@ -183,20 +209,20 @@ async function handleIncomingMessage(
       await db
         .update(conversationsTable)
         .set({
-          lastMessage: text,
+          lastMessage: displayText,
           unreadCount: conversation.unreadCount + 1,
           updatedAt: new Date(),
         })
         .where(eq(conversationsTable.id, conversation.id));
     }
 
-    // Detect emotion
-    const emotion = await detectEmotion(text);
+    // Detect emotion (text only; media-only messages default to neutral)
+    const emotion = await detectEmotion(text ?? "");
 
     // Save incoming message
     await db.insert(messagesTable).values({
       conversationId: conversation.id,
-      content: text,
+      content: displayText,
       sender: phone,
       senderType: "customer",
       isAiGenerated: false,
@@ -235,7 +261,9 @@ async function handleIncomingMessage(
       conversationId: conversation.id,
       customerId: customer.id,
       customerName: customer.name ?? pushName,
-      incomingMessage: text,
+      incomingMessage: text ?? "",
+      mediaBase64,
+      mediaType,
     });
 
     if (!reply) return;
