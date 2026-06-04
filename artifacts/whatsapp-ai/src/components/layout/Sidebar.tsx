@@ -118,11 +118,14 @@ export function Sidebar() {
       
       {/* AI Master Toggle */}
       <div className="px-3 pb-2">
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={toggleAI}
-          disabled={updateSettings.isPending}
+          onKeyDown={(e) => e.key === "Enter" && toggleAI()}
+          aria-disabled={updateSettings.isPending}
           className={cn(
-            "w-full flex items-center justify-between rounded-lg border px-3 py-3 transition-all duration-200 cursor-pointer",
+            "w-full flex items-center justify-between rounded-lg border px-3 py-3 transition-all duration-200 cursor-pointer select-none",
             aiEnabled
               ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
               : "border-destructive/30 bg-destructive/5 hover:bg-destructive/10"
@@ -149,7 +152,7 @@ export function Sidebar() {
             className="pointer-events-none scale-90"
             aria-label="Toggle global AI"
           />
-        </button>
+        </div>
       </div>
 
       <div className="p-3 pt-2 border-t border-border">
