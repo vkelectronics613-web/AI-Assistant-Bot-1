@@ -22,7 +22,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   MessageSquare, Search, BrainCircuit, User, AlertTriangle, Send,
-  Pause, Play, UserCheck, Bot, Filter, Users, Phone,
+  Pause, Play, UserCheck, Bot, Filter, Users, Phone, List, X, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +41,10 @@ function relativeTime(iso: string) {
 
 function msgTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function cleanPhone(phone: string): string {
+  return phone.replace(/@[\w.]+$/, "");
 }
 
 function Avatar({ name, size = "md" }: { name?: string | null; size?: "sm" | "md" | "lg" }) {
@@ -67,6 +71,10 @@ export default function Chat() {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("conversations");
   const [contacts, setContacts] = useState<WaContact[]>([]);
   const [contactSearch, setContactSearch] = useState("");
+  const [showList, setShowList] = useState(false);
+  const [listTitle, setListTitle] = useState("");
+  const [listBody, setListBody] = useState("");
+  const [listOptions, setListOptions] = useState([{ title: "", description: "" }]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -119,6 +127,28 @@ export default function Chat() {
       { id: selectedId, data: { content: message } },
       { onSuccess: () => { setMessage(""); invalidate(); }, onError: () => toast({ title: "Send failed", variant: "destructive" }) },
     );
+  }
+
+  async function handleSendList() {
+    if (!selectedId || !listTitle.trim()) return;
+    const opts = listOptions.filter(o => o.title.trim());
+    if (!opts.length) return;
+    try {
+      const res = await fetch(`/api/conversations/${selectedId}/list-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title: listTitle, body: listBody || "Choose an option:", options: opts }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setShowList(false);
+      setListTitle("");
+      setListBody("");
+      setListOptions([{ title: "", description: "" }]);
+      invalidate();
+    } catch {
+      toast({ title: "Failed to send list message", variant: "destructive" });
+    }
   }
 
   const filteredConvs = (conversations ?? []).filter(c =>
@@ -309,7 +339,7 @@ export default function Chat() {
                         <Avatar name={c.name} size="sm" />
                         <div className="min-w-0">
                           <p className="text-xs font-medium truncate">{c.name ?? c.phone}</p>
-                          <p className="text-[10px] text-muted-foreground">+{c.phone}</p>
+                          <p className="text-[10px] text-muted-foreground">+{cleanPhone(c.phone)}</p>
                         </div>
                         <Phone className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 ml-auto" />
                       </div>
@@ -348,7 +378,7 @@ export default function Chat() {
                     <div className="min-w-0">
                       <p className="font-semibold text-sm truncate">{detail?.customerName ?? detail?.customerPhone}</p>
                       <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                        <span className="text-[11px] text-muted-foreground">{detail?.customerPhone}</span>
+                        <span className="text-[11px] text-muted-foreground">{detail?.customerPhone ? cleanPhone(detail.customerPhone) : ""}</span>
                         {detail?.aiHandled && (
                           <Badge className="text-[10px] h-4 px-1.5 bg-primary/15 text-primary border-primary/20 hover:bg-primary/15">
                             <Bot className="h-2.5 w-2.5 mr-0.5" />AI Active
@@ -451,8 +481,97 @@ export default function Chat() {
               </ScrollArea>
 
               {/* Input bar */}
-              <div className="px-4 py-3 border-t border-border shrink-0 bg-card/80">
+              <div className="px-4 py-3 border-t border-border shrink-0 bg-card/80 space-y-2">
+                {/* List message composer panel */}
+                {showList && (
+                  <div className="rounded-lg border border-primary/30 bg-secondary/40 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-primary flex items-center gap-1.5"><List className="h-3.5 w-3.5" />Quick Reply List</p>
+                      <button onClick={() => setShowList(false)} className="text-muted-foreground hover:text-foreground">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="Title (e.g. How can I help you?)"
+                      className="h-7 text-xs"
+                      value={listTitle}
+                      onChange={e => setListTitle(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Body text (optional)"
+                      className="h-7 text-xs"
+                      value={listBody}
+                      onChange={e => setListBody(e.target.value)}
+                    />
+                    <div className="space-y-1.5">
+                      {listOptions.map((opt, i) => (
+                        <div key={i} className="flex gap-1.5 items-center">
+                          <Input
+                            placeholder={`Option ${i + 1}`}
+                            className="h-7 text-xs flex-1"
+                            value={opt.title}
+                            onChange={e => {
+                              const next = [...listOptions];
+                              next[i] = { ...next[i], title: e.target.value };
+                              setListOptions(next);
+                            }}
+                          />
+                          <Input
+                            placeholder="Detail (optional)"
+                            className="h-7 text-xs flex-1"
+                            value={opt.description}
+                            onChange={e => {
+                              const next = [...listOptions];
+                              next[i] = { ...next[i], description: e.target.value };
+                              setListOptions(next);
+                            }}
+                          />
+                          {listOptions.length > 1 && (
+                            <button
+                              className="text-muted-foreground hover:text-destructive shrink-0"
+                              onClick={() => setListOptions(listOptions.filter((_, j) => j !== i))}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {listOptions.length < 5 && (
+                        <button
+                          className="text-[11px] text-primary hover:text-primary/80 flex items-center gap-1"
+                          onClick={() => setListOptions([...listOptions, { title: "", description: "" }])}
+                        >
+                          <Plus className="h-3 w-3" /> Add option
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowList(false)}>Cancel</Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={handleSendList}
+                        disabled={!listTitle.trim() || listOptions.every(o => !o.title.trim())}
+                      >
+                        Send List
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2">
+                  <button
+                    title="Send interactive list"
+                    onClick={() => setShowList(!showList)}
+                    className={cn(
+                      "h-9 w-9 rounded-md flex items-center justify-center shrink-0 border transition-colors",
+                      showList
+                        ? "border-primary text-primary bg-primary/10"
+                        : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary/50",
+                    )}
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
                   <Input
                     ref={inputRef}
                     placeholder="Type a message…"

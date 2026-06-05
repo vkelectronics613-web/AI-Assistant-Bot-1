@@ -12,7 +12,7 @@ import {
   SendMessageParams,
   SendMessageBody,
 } from "@workspace/api-zod";
-import { sendWhatsAppMessage, getWhatsAppState } from "../services/whatsapp.js";
+import { sendWhatsAppMessage, sendWhatsAppListMessage, getWhatsAppState } from "../services/whatsapp.js";
 
 const router: IRouter = Router();
 
@@ -260,6 +260,56 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
   }
 
   res.status(201).json(formatMessage(message));
+});
+
+interface ListOption { title: string; description: string; }
+
+router.post("/conversations/:id/list-message", async (req, res): Promise<void> => {
+  const params = GetConversationParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const { title, body, options } = req.body as { title?: string; body?: string; options?: ListOption[] };
+  if (!title || typeof title !== "string" || !title.trim()) {
+    res.status(400).json({ error: "title is required" }); return;
+  }
+  if (!Array.isArray(options) || options.length === 0 || options.length > 10) {
+    res.status(400).json({ error: "options must be an array of 1–10 items" }); return;
+  }
+  const cleanOpts = options
+    .filter((o): o is ListOption => typeof o?.title === "string" && o.title.trim().length > 0)
+    .map((o) => ({ title: o.title.trim(), description: (o.description ?? "").trim() }));
+  if (!cleanOpts.length) { res.status(400).json({ error: "At least one option with a title is required" }); return; }
+
+  const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, params.data.id));
+  if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
+
+  const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, conv.customerId));
+  if (!customer?.phone) { res.status(422).json({ error: "No phone for customer" }); return; }
+
+  const waState = getWhatsAppState();
+  if (!waState.connected) { res.status(503).json({ error: "WhatsApp not connected" }); return; }
+
+  try {
+    await sendWhatsAppListMessage(customer.phone, title.trim(), body?.trim() || "Choose an option:", cleanOpts);
+
+    const content = `📋 ${title.trim()}\n${cleanOpts.map((o, i) => `${i + 1}. ${o.title}`).join("\n")}`;
+    const [msg] = await db.insert(messagesTable).values({
+      conversationId: params.data.id,
+      content,
+      sender: "agent",
+      senderType: "human",
+      isAiGenerated: false,
+    }).returning();
+
+    await db.update(conversationsTable)
+      .set({ lastMessage: `List: ${title.trim()}`, updatedAt: new Date() })
+      .where(eq(conversationsTable.id, params.data.id));
+
+    res.status(201).json(formatMessage(msg));
+  } catch (err) {
+    req.log.error({ err }, "Failed to send list message via WhatsApp");
+    res.status(500).json({ error: "Failed to send list message" });
+  }
 });
 
 export default router;

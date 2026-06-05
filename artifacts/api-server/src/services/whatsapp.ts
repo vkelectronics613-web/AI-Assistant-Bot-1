@@ -90,8 +90,8 @@ async function updateDbState(update: {
 
 async function isAIGloballyEnabled(): Promise<boolean> {
   try {
-    const [cfg] = await db.select().from(aiConfigTable).limit(1);
-    return cfg?.enabled ?? true;
+    const [cfg] = await db.select().from(settingsTable).limit(1);
+    return cfg?.globalAiEnabled ?? true;
   } catch {
     return true;
   }
@@ -319,21 +319,41 @@ export async function initWhatsApp(): Promise<void> {
 
     socket.ev.on("creds.update", saveCreds);
 
-    socket.ev.on("contacts.upsert", (contacts) => {
+    socket.ev.on("contacts.upsert", async (contacts) => {
       for (const c of contacts) {
         const phone = c.id.replace("@s.whatsapp.net", "").replace("@c.us", "");
         if (phone && !c.id.endsWith("@g.us") && !c.id.endsWith("@broadcast")) {
-          contactsMap.set(phone, { phone, name: c.name ?? c.notify ?? null });
+          const name = (c.name ?? (c as { notify?: string }).notify ?? null);
+          contactsMap.set(phone, { phone, name });
+          if (name) {
+            try {
+              await db.update(customersTable).set({ name }).where(eq(customersTable.phone, c.id));
+              if (c.id !== phone) {
+                await db.update(customersTable).set({ name }).where(eq(customersTable.phone, phone));
+              }
+            } catch (err) {
+              logger.warn({ err }, "Failed to persist contact name to DB");
+            }
+          }
         }
       }
     });
 
-    socket.ev.on("contacts.update", (updates) => {
+    socket.ev.on("contacts.update", async (updates) => {
       for (const c of updates) {
         const phone = c.id?.replace("@s.whatsapp.net", "").replace("@c.us", "") ?? "";
         if (phone && !c.id?.endsWith("@g.us")) {
           const existing = contactsMap.get(phone);
-          contactsMap.set(phone, { phone, name: (c as { name?: string; notify?: string }).name ?? (c as { name?: string; notify?: string }).notify ?? existing?.name ?? null });
+          const name = (c as { name?: string; notify?: string }).name ?? (c as { name?: string; notify?: string }).notify ?? existing?.name ?? null;
+          contactsMap.set(phone, { phone, name });
+          if (name && name !== existing?.name) {
+            try {
+              if (c.id) await db.update(customersTable).set({ name }).where(eq(customersTable.phone, c.id));
+              if (c.id !== phone) await db.update(customersTable).set({ name }).where(eq(customersTable.phone, phone));
+            } catch (err) {
+              logger.warn({ err }, "Failed to update contact name in DB");
+            }
+          }
         }
       }
     });

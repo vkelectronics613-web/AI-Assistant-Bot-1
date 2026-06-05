@@ -126,7 +126,7 @@ export default function Customers() {
                       {customer.isBlocked && <Badge variant="destructive" className="text-[10px] h-4 px-1"><Ban className="h-2.5 w-2.5 mr-0.5" />Blocked</Badge>}
                       <EmotionBadge state={customer.emotionState} />
                     </div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{customer.phone}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{customer.phone.replace(/@[\w.]+$/, "")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
